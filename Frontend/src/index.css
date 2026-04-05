@@ -1,0 +1,73 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap');
+
+/* --- 🌟 CORE BRAND TOKENS 🌟 --- */
+:root {
+  --color-primary: #e62020; /* Premium QuickCarto Red */
+  --color-primary-dark: #cc1b1b;
+  --color-accent: #ff4500; /* Keep vibrant orange for hot deals */
+  
+  --bg-main: #FFFFFF;
+  --bg-subtle: #F8F9FA;
+  
+  --text-main: #1F2937;
+  --text-muted: #6B7280;
+}
+
+/* --- 🌟 FOUNDATION 🌟 --- */
+html, body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  
+  /* Apply elegant scalable geometry font system */
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  
+  scroll-behavior: smooth;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Typography refinements */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.02em; /* Tightens large headers slightly for premium feel */
+}
+
+/* Selection aesthetics */
+::selection {
+  background-color: rgba(230, 32, 32, 0.2); /* Soft red selection background */
+  color: var(--text-main);
+}
+
+/* --- 🌟 UTILITY CLASSES 🌟 --- */
+@layer utilities {
+  /* Ultra-clean hidden scrollbar for horizontal product/category lists */
+  .scroll-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scroll-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
+}
+
+/* --- 🌟 GLOBAL SCROLLBAR 🌟 --- */
+/* (Visible only on the main window / large vertical scroll containers) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
