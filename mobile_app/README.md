@@ -1,17 +1,36 @@
-# mobile_app
+# Quick-Carto 🚀
 
-A new Flutter project.
+Quick-Carto is a grocery delivery application similar to Blinkit.  
+It allows users to browse products, add to cart, and place orders easily.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 📱 Features
+- User Registration & Login
+- Browse Products
+- Add to Cart
+- Order Placement
+- Multi-platform (Web + Mobile App)
 
-A few resources to get you started if this is your first Flutter project:
+---
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## 🛠️ Tech Stack
+- Frontend: React (or your frontend)
+- Backend: Django (Python)
+- Mobile App: Flutter
+- Database: SQLite / PostgreSQL
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+---
+
+## 📂 Project Structure
+- `Frontend/` → Web application
+- `Backend/` → Django backend (API)
+- `mobile_app/` → Flutter mobile app
+
+---
+
+## ⚙️ How to Run
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/pat-uzwal/Quick-Carto.git

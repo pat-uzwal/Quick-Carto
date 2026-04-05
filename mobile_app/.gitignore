@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+.DS_Store
+__pycache__/
+db.sqlite3
+.env
+build/
+.dart_tool/
+node_modules/
