@@ -67,11 +67,6 @@ class CartScreen extends StatelessWidget {
                             Text("LALITPUR HUB • VERIFIED", style: TextStyle(color: Color(0xFFE62020), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
                           ],
                         ),
-                        TextButton.icon(
-                          onPressed: () => cart.clearCart(),
-                          icon: const Icon(LucideIcons.trash2, size: 12, color: Colors.black26),
-                          label: const Text("RESET", style: TextStyle(color: Colors.black26, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1)),
-                        )
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -79,6 +74,7 @@ class CartScreen extends StatelessWidget {
                     // Elite Item List
                     ...cart.items.map((item) {
                       final detail = item['product_detail'] ?? {};
+                      final productId = item['product'] is Map ? item['product']['id'] : item['product'];
                       final qty = item['quantity'] as int? ?? 1;
                       final price = double.tryParse(detail['final_price']?.toString() ?? detail['price']?.toString() ?? '0') ?? 0;
                       
@@ -111,19 +107,29 @@ class CartScreen extends StatelessWidget {
                               ),
                             ),
                             
-                            // High-Impact Quantity Control
+                            // Improved Horizontal Quantity Control
                             Container(
-                              padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFE62020),
-                                borderRadius: BorderRadius.circular(15),
-                                boxShadow: [BoxShadow(color: const Color(0xFFE62020).withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 5))],
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [BoxShadow(color: const Color(0xFFE62020).withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
                               ),
-                              child: Column(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  _buildQtyBtn(LucideIcons.plus, () => cart.updateQuantity(item['product'], qty + 1)),
-                                  Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text("$qty", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16))),
-                                  _buildQtyBtn(LucideIcons.minus, () => cart.updateQuantity(item['product'], qty - 1)),
+                                  IconButton(
+                                    icon: const Icon(LucideIcons.minus, color: Colors.white, size: 16),
+                                    onPressed: () => cart.updateQuantity(productId, qty - 1),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  ),
+                                  Text("$qty", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+                                  IconButton(
+                                    icon: const Icon(LucideIcons.plus, color: Colors.white, size: 16),
+                                    onPressed: () => cart.updateQuantity(productId, qty + 1),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  ),
                                 ],
                               ),
                             )

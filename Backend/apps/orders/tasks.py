@@ -15,7 +15,7 @@ def notify_warehouse_new_order(order_id: int, warehouse_name: str):
     In production, replace with email/push/WebSocket notification.
     """
     logger.info(f"[NOTIFY] New order #{order_id} assigned to warehouse '{warehouse_name}'.")
-    # e.g., send_mail(...) or push via Django Channels
+    
 
 
 @shared_task

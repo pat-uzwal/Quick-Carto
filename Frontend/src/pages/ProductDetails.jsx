@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchProducts } from '../features/products/productSlice';
 import { addToCart, updateQuantity, removeFromCart } from '../features/cart/cartSlice';
-import { Plus, Minus, Star, ShoppingBag, Clock, ShieldCheck, Zap, ChevronLeft, ChevronRight, Share2, Heart } from 'lucide-react';
+import { Plus, Minus, Star, ShoppingBag, Clock, ShieldCheck, Zap, ChevronLeft, ChevronRight, Share2, Heart, Package, Gem } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 
 const ProductDetails = () => {
@@ -20,7 +20,7 @@ const ProductDetails = () => {
         weight: '200 g',
         description: 'Made with organic damask rose petals and rock sugar. Sun-cooked organic Gulkand to ensure freshness and nutrition for your lifestyle.',
         category: 'Jam & Spreads',
-        icon: '🍯'
+        icon: <Package />
     };
 
     const cartItem = cartItems.find((item) => item.id === id);
@@ -33,7 +33,7 @@ const ProductDetails = () => {
     }, [status, dispatch]);
 
     const handleAddToCart = () => {
-        dispatch(addToCart({ id: product._id, name: product.name, price: product.price, image: product.icon }));
+        dispatch(addToCart({ id: product._id, name: product.name, price: product.price, image: product.image }));
     };
 
     const handleIncrement = () => {
@@ -72,7 +72,7 @@ const ProductDetails = () => {
                                  {product.image ? (
                                      <img src={product.image} alt={product.name} className="w-full h-full object-contain p-8 drop-shadow-lg" />
                                  ) : (
-                                     <span className="text-[180px] md:text-[240px]">{product.icon || '📦'}</span>
+                                     <span className="text-gray-300 mx-auto justify-center w-full flex items-center h-full"><Package size={180} /></span>
                                  )}
                              </div>
                              <div className="absolute top-6 right-6 flex flex-col gap-4 z-20">
@@ -135,14 +135,22 @@ const ProductDetails = () => {
 
                             <div className="w-[180px] shrink-0">
                                 {quantity === 0 ? (
-                                    <button onClick={handleAddToCart} className="w-full bg-[#e62020] text-white h-[54px] rounded-[16px] font-black text-[16px] shadow-[0_8px_20px_-6px_rgba(230,32,32,0.5)] hover:bg-[#cc1b1b] hover:-translate-y-1 active:scale-95 transition-all uppercase tracking-wide">
-                                          ADD
+                                    <button 
+                                        onClick={handleAddToCart} 
+                                        disabled={product.total_stock === 0}
+                                        className={`w-full h-[54px] rounded-[16px] font-black text-[16px] uppercase tracking-wide transition-all ${
+                                            product.total_stock === 0 
+                                                ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                                                : 'bg-[#e62020] text-white shadow-[0_8px_20px_-6px_rgba(230,32,32,0.5)] hover:bg-[#cc1b1b] hover:-translate-y-1 active:scale-95'
+                                        }`}
+                                    >
+                                        {product.total_stock === 0 ? 'OUT OF STOCK' : 'ADD'}
                                     </button>
                                 ) : (
                                     <div className="flex items-center bg-[#e62020] text-white font-black rounded-[16px] h-[54px] shadow-[0_8px_20px_-6px_rgba(230,32,32,0.5)] hover:-translate-y-1 transition-transform">
                                         <button onClick={handleDecrement} className="w-14 h-full hover:bg-black/10 transition-colors flex items-center justify-center text-3xl active:bg-black/20 rounded-l-[16px] pb-1">−</button>
                                         <span className="flex-1 text-center text-[18px]">{quantity}</span>
-                                        <button onClick={handleIncrement} className="w-14 h-full hover:bg-black/10 transition-colors flex items-center justify-center text-3xl active:bg-black/20 rounded-r-[16px] pb-1">+</button>
+                                        <button onClick={handleIncrement} disabled={quantity >= product.total_stock} className={`w-14 h-full flex items-center justify-center text-3xl rounded-r-[16px] pb-1 transition-colors ${quantity >= product.total_stock ? 'opacity-50 cursor-not-allowed' : 'hover:bg-black/10 active:bg-black/20'}`}>+</button>
                                     </div>
                                 )}
                             </div>
@@ -153,14 +161,14 @@ const ProductDetails = () => {
                              <h4 className="text-[18px] font-black text-gray-900 tracking-tight">Why shop from QuickCarto?</h4>
                              <div className="flex flex-col gap-6">
                                  <div className="flex items-center gap-5 group">
-                                      <div className="w-14 h-14 bg-red-50 rounded-[16px] flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">⚡</div>
+                                      <div className="w-14 h-14 bg-red-50 rounded-[16px] flex items-center justify-center group-hover:scale-110 transition-transform"><Zap className="text-yellow-500" /></div>
                                       <div className="flex flex-col">
                                           <h5 className="text-[15px] font-bold text-gray-900 tracking-tight">Superfast Delivery</h5>
                                           <p className="text-[13px] font-medium text-gray-500 leading-snug">Get your order delivered to your doorstep at the earliest from local hubs.</p>
                                       </div>
                                  </div>
                                  <div className="flex items-center gap-5 group">
-                                      <div className="w-14 h-14 bg-blue-50 rounded-[16px] flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">💎</div>
+                                      <div className="w-14 h-14 bg-blue-50 rounded-[16px] flex items-center justify-center group-hover:scale-110 transition-transform"><Gem className="text-blue-500" /></div>
                                       <div className="flex flex-col">
                                           <h5 className="text-[15px] font-bold text-gray-900 tracking-tight">Best Prices & Offers</h5>
                                           <p className="text-[13px] font-medium text-gray-500 leading-snug">Best price destination with awesome offers directly from the manufacturers.</p>

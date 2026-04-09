@@ -43,6 +43,13 @@ class _HomeScreenState extends State<HomeScreen> {
       final resCats = await ApiService.get('/categories/');
       
       if (mounted) {
+        if (resProds.statusCode == 401 || resCats.statusCode == 401) {
+          Provider.of<AuthProvider>(context, listen: false).logout();
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Session expired. Please login again.')));
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
+          return;
+        }
+
         if (resProds.statusCode == 200 && resCats.statusCode == 200) {
           final prodData = jsonDecode(resProds.body);
           final catData = jsonDecode(resCats.body);
@@ -53,12 +60,16 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         } else {
           // Fail gracefully but show the screen
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load data. Status: ${resProds.statusCode}')));
           setState(() => _isLoading = false);
         }
       }
     } catch (e) {
       debugPrint("Full Fetch Error: $e");
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Network Error: $e')));
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -91,36 +102,42 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        toolbarHeight: 80,
-        backgroundColor: Colors.white, elevation: 0,
-        centerTitle: false,
-        title: Row(
-          children: [
-            GestureDetector(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AccountScreen())),
-              child: const CircleAvatar(backgroundColor: Color(0xFFFDE8E8), radius: 20, child: Icon(LucideIcons.user, color: Color(0xFFE62020), size: 20)),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(children: [Text("Delivery in ", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)), Text("10 mins", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFFE62020)))]),
-                GestureDetector(onTap: _showLocationPicker, child: Row(children: [Text(_userDefinedLocation ?? (auth.user?['current_location'] ?? 'Detecting...'), style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)), const SizedBox(width: 4), const Icon(LucideIcons.chevronDown, size: 12, color: Colors.grey)]))
-              ],
-            ),
-          ],
-        ),
-        actions: [IconButton(icon: const Icon(LucideIcons.logOut, color: Colors.grey, size: 20), onPressed: () async { await auth.logout(); Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen())); })],
-      ),
       body: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: Color(0xFFE62020)))
+        ? const Center(child: SizedBox(width: 36, height: 36, child: CircularProgressIndicator(color: Color(0xFFE62020), strokeWidth: 3)))
         : CustomScrollView(
+            physics: const ClampingScrollPhysics(), // Prevent "extending" stretch gaps
+            cacheExtent: 1000,
             slivers: [
+              // Unified Header (Moves with content)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 60, bottom: 10, left: 16, right: 16),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AccountScreen())),
+                        child: const CircleAvatar(backgroundColor: Color(0xFFFDE8E8), radius: 22, child: Icon(LucideIcons.user, color: Color(0xFFE62020), size: 22)),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(children: [Text("Delivery in ", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)), Text("10 mins", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFFE62020)))]),
+                            GestureDetector(onTap: _showLocationPicker, child: Row(children: [Text(_userDefinedLocation ?? (auth.user?['current_location'] ?? 'Detecting...'), style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)), const SizedBox(width: 4), const Icon(LucideIcons.chevronDown, size: 12, color: Colors.grey)]))
+                          ],
+                        ),
+                      ),
+                      IconButton(icon: const Icon(LucideIcons.logOut, color: Colors.grey, size: 20), onPressed: () async { await auth.logout(); Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen())); }),
+                    ],
+                  ),
+                ),
+              ),
+
               // Search Bar
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200, width: 1.5)),
@@ -148,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 32)),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
               // Search Results OR Category Sections
               if (_searchQuery.isNotEmpty)
@@ -178,13 +195,23 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(cat['name'].toString().toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)), Container(height: 3, width: 40, color: const Color(0xFFE62020), margin: const EdgeInsets.only(top: 4))]),
-                GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CategoryScreen(initialCategoryId: cat['id']))), child: const Text("SEE ALL >", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFE62020)))),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(cat['name'].toString().toUpperCase(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)), Container(height: 3, width: 30, color: const Color(0xFFE62020), margin: const EdgeInsets.only(top: 4))]),
+                GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CategoryScreen(initialCategoryId: cat['id']))), child: const Text("SEE ALL >", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFE62020)))),
               ],
             ),
           ),
-          SizedBox(height: 310, child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), itemCount: prods.length, itemBuilder: (ctx, i) => _buildProductCard(prods[i], cart))),
-          const SizedBox(height: 32),
+          SizedBox(
+            height: 260, // Tightened height for more visibility
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal, 
+              padding: const EdgeInsets.symmetric(horizontal: 12), 
+              itemCount: prods.length,
+              addAutomaticKeepAlives: true,
+              physics: const BouncingScrollPhysics(),
+              itemBuilder: (ctx, i) => _buildProductCard(prods[i], cart),
+            ),
+          ),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -215,41 +242,46 @@ class _HomeScreenState extends State<HomeScreen> {
     final cartItem = cart.items.where((i) => i['product'].toString() == p['id'].toString()).toList();
     final inCartQty = cartItem.isNotEmpty ? (int.tryParse(cartItem.first['quantity'].toString()) ?? 0) : 0;
 
+    final double cardWidth = (MediaQuery.of(context).size.width - 40) / 2;
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(product: p))),
       child: Container(
-        width: 160, margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.black.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))]),
+        width: cardWidth, margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.black.withOpacity(0.04)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 2))]),
         child: Column(
           children: [
             Expanded(
                child: Container(
-                 width: double.infinity, decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
-                 child: ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), child: _buildProductImage(p)),
+                 width: double.infinity, decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: const BorderRadius.vertical(top: Radius.circular(16))),
+                 child: ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(16)), child: _buildProductImage(p)),
                ),
             ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(p['name']?.toString() ?? 'Product', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 8),
+                  Text(p['name']?.toString() ?? 'Product', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('रू${p['final_price'] ?? p['price'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFE62020))),
+                      Text('रू${p['final_price'] ?? p['price'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFFE62020))),
                       if (inCartQty == 0)
                         GestureDetector(
                           onTap: () => cart.addToCart(p['id'], 1),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                            decoration: BoxDecoration(color: const Color(0xFFE62020), borderRadius: BorderRadius.circular(10)),
-                            child: const Text('ADD', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11)),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(color: const Color(0xFFE62020), borderRadius: BorderRadius.circular(8)),
+                            child: const Text('ADD', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10)),
                           ),
                         )
                       else
-                        Text('$inCartQty', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFFE62020))),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(4)),
+                          child: Text('$inCartQty', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Color(0xFFE62020))),
+                        ),
                     ],
                   )
                 ],
@@ -265,7 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
     var url = p['image_url']?.toString() ?? '';
     if (url.isEmpty) return const Center(child: Icon(LucideIcons.shoppingBag, color: Colors.black12, size: 40));
     final resolvedUrl = url.startsWith('http') ? url : '${ApiService.mediaUrl}/$url';
-    return CachedNetworkImage(imageUrl: Uri.encodeFull(resolvedUrl), fit: BoxFit.contain, errorWidget: (_, __, ___) => const Center(child: Icon(LucideIcons.shoppingBag, color: Colors.black12, size: 40)));
+    return CachedNetworkImage(imageUrl: resolvedUrl, fit: BoxFit.contain, errorWidget: (_, __, ___) => const Center(child: Icon(LucideIcons.shoppingBag, color: Colors.black12, size: 40)));
   }
 
   Widget _buildBottomNav(CartProvider cart) {

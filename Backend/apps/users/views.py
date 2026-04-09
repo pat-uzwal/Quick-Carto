@@ -21,7 +21,7 @@ from .serializers import (
 User = get_user_model()
 
 
-# ── Beautiful HTML email template builder ────────────────────────────────────────
+
 
 def _build_otp_email_html(otp_code, title, greeting, message, footer_note=""):
     """Generate a beautiful branded HTML email for OTP delivery."""
@@ -188,7 +188,7 @@ def _send_otp_email(user_email, otp_code, purpose='verify'):
     )
 
 
-# ── Views ────────────────────────────────────────────────────────────────────────
+
 
 class UserViewSet(viewsets.ModelViewSet):
     """
@@ -213,7 +213,6 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        # Generate and send verification OTP
         otp_obj = EmailOTP.generate_for(user)
         try:
             _send_otp_email(user.email, otp_obj.otp, purpose='verify')
@@ -294,9 +293,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 class AddressViewSet(viewsets.ModelViewSet):
-    """
-    CRUD ViewSet for User addresses.
-    """
+    
     serializer_class = AddressSerializer
     permission_classes = [IsAuthenticated]
 
@@ -317,7 +314,7 @@ class AddressViewSet(viewsets.ModelViewSet):
         return Response({'detail': 'Address set as default.'})
 
 
-# ── Keep OTP views separate for cleaner UI logic ────────────────────────────────
+# ─
 
 class RequestOTPView(generics.GenericAPIView):
     permission_classes = (AllowAny,)

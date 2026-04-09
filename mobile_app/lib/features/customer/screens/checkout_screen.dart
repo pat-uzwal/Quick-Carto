@@ -19,8 +19,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final TextEditingController _areaController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _couponController = TextEditingController();
   
   bool _isPlacingOrder = false;
+  bool _isValidatingCoupon = false;
+  Map<String, dynamic>? _appliedCoupon;
+  String? _couponError;
   String _paymentMethod = 'cod';
   
   double _lat = 27.706195;
@@ -65,6 +69,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'delivery_lng': _lng,
         'payment_method': _paymentMethod,
         'contact_phone': _phoneController.text,
+        'coupon_code': _appliedCoupon?['code'],
       });
 
       if (res.statusCode == 201 || res.statusCode == 200) {
@@ -116,6 +121,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
     setState(() => _isPlacingOrder = false);
+  }
+
+  Future<void> _validateCoupon() async {
+    if (_couponController.text.isEmpty) return;
+    
+    final cart = Provider.of<CartProvider>(context, listen: false);
+    setState(() {
+      _isValidatingCoupon = true;
+      _couponError = null;
+    });
+
+    try {
+      final res = await ApiService.post('/coupons/validate/', {
+        'code': _couponController.text.toUpperCase(),
+        'cart_total': cart.total,
+      });
+
+      if (res.statusCode == 200) {
+        setState(() {
+          _appliedCoupon = jsonDecode(res.body);
+          _couponController.clear();
+        });
+      } else {
+        final data = jsonDecode(res.body);
+        setState(() => _couponError = data['detail'] ?? "Invalid Coupon");
+      }
+    } catch (e) {
+      setState(() => _couponError = "Validation failed");
+    } finally {
+      setState(() => _isValidatingCoupon = false);
+    }
   }
 
   @override
@@ -218,6 +254,65 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
             const SizedBox(height: 32),
 
+            // Coupon Section
+            _buildWebStyledSection(
+              icon: LucideIcons.ticket,
+              iconBg: const Color(0xFFFEFCE8),
+              iconColor: Colors.orange,
+              title: "PROMO CODE",
+              subtitle: "HAVE AN AUTH KEY?",
+              child: _appliedCoupon != null 
+                ? Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.green.shade100),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("CODE ${_appliedCoupon!['code']} APPLIED", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+                            Text("${_appliedCoupon!['discount_percentage']}% EXTRA DISCOUNT SECURED", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w900, fontSize: 10)),
+                          ],
+                        ),
+                        TextButton(onPressed: () => setState(() => _appliedCoupon = null), child: const Text("REMOVE", style: TextStyle(color: Colors.red, fontWeight: FontWeight.w900, fontSize: 11))),
+                      ],
+                    ),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildWebTextField(_couponController, "E.G. PARTY20"),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: _isValidatingCoupon ? null : _validateCoupon,
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                              child: _isValidatingCoupon ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text("APPLY", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 11)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_couponError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, left: 4),
+                          child: Text("⚠️ $_couponError", style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w900, fontSize: 10)),
+                        ),
+                    ],
+                  ),
+            ),
+
+            const SizedBox(height: 32),
+
             // Web Summary Card
             Container(
               decoration: BoxDecoration(
@@ -269,6 +364,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
                   const Divider(height: 32),
                   _buildMiniSummary("CART TOTAL", "RS ${cart.total.toStringAsFixed(0)}"),
+                  if (_appliedCoupon != null)
+                    _buildMiniSummary("COON DISCOUNT", "- RS ${((cart.total * (_appliedCoupon!['discount_percentage'] / 100))).toStringAsFixed(0)}", isGreen: true),
                   _buildMiniSummary("HANDLING FEE", "RS 10"),
                   _buildMiniSummary("DELIVERY FEE", "RS 40", isRed: true),
                   
@@ -285,7 +382,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text("GRAND TOTAL", style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
-                        Text("NPR ${(cart.total + 50).toStringAsFixed(0)}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 24)),
+                        Text("NPR ${((cart.total + 50) - (_appliedCoupon != null ? (cart.total * (_appliedCoupon!['discount_percentage'] / 100)) : 0)).toStringAsFixed(0)}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 24)),
                       ],
                     ),
                   ),
@@ -396,14 +493,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildMiniSummary(String label, String value, {bool isRed = false}) {
+  Widget _buildMiniSummary(String label, String value, {bool isRed = false, bool isGreen = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: isRed ? const Color(0xFFE62020) : Colors.black38, letterSpacing: 0.5)),
-          Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: isRed ? const Color(0xFFE62020) : Colors.black87)),
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: isRed ? const Color(0xFFE62020) : (isGreen ? Colors.green : Colors.black38), letterSpacing: 0.5)),
+          Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: isRed ? const Color(0xFFE62020) : (isGreen ? Colors.green : Colors.black87))),
         ],
       ),
     );

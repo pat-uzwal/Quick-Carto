@@ -2,15 +2,15 @@ import { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { fetchProducts } from '../features/products/productSlice';
-import { ChevronRight, Package, ShoppingBag } from 'lucide-react';
+import { ChevronRight, Package, ShoppingBag, Zap, Clock, ShoppingCart, Wine, Sparkles, Cherry, Play } from 'lucide-react';
 import { addToCart, updateQuantity, removeFromCart } from '../features/cart/cartSlice';
 
 /* ─── CATEGORY DATA ─── */
 const CATEGORY_DATA = [
-    { id: 'grocery-and-kitchen', name: 'Grocery & Kitchen', icon: '🛒', bg: '#f0fdf4' },
-    { id: 'snacks-and-drinks', name: 'Snacks & Drinks', icon: '🍿', bg: '#fff7ed' },
-    { id: 'liquors-and-smoke', name: 'Liquors & Smoke', icon: '🍾', bg: '#fef3c7' },
-    { id: 'beauty-and-personal-care', name: 'Beauty & Personal Care', icon: '💄', bg: '#fdf4ff' },
+    { id: 'grocery-and-kitchen', name: 'Grocery & Kitchen', icon: <ShoppingCart className="text-green-600" size={40} />, bg: '#f0fdf4' },
+    { id: 'snacks-and-drinks', name: 'Snacks & Drinks', icon: <Cherry className="text-orange-500" size={40} />, bg: '#fff7ed' },
+    { id: 'liquors-and-smoke', name: 'Liquors & Smoke', icon: <Wine className="text-yellow-600" size={40} />, bg: '#fef3c7' },
+    { id: 'beauty-and-personal-care', name: 'Beauty & Personal Care', icon: <Sparkles className="text-fuchsia-500" size={40} />, bg: '#fdf4ff' },
 ];
 
 /* ─── INLINE PRODUCT CARD ─── */
@@ -44,6 +44,14 @@ const Card = ({ product }) => {
             to={`/product/${product._id}`}
             className="flex-shrink-0 w-[190px] bg-white border border-gray-100 shadow-md rounded-[28px] p-5 flex flex-col hover:shadow-2xl hover:-translate-y-2 hover:border-[#e62020]/20 transition-all duration-300 group relative overflow-hidden"
         >
+            {/* Out of Stock Overlay */}
+            {product.total_stock === 0 && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex items-center justify-center rounded-[28px]">
+                    <div className="bg-red-50 text-red-600 font-black text-[11px] px-3 py-1.5 rounded-lg border border-red-200 uppercase tracking-widest shadow-sm">
+                        Out of Stock
+                    </div>
+                </div>
+            )}
             {/* Discount Badge */}
             {product.discount > 0 && (
                 <div className="absolute top-0 left-0 bg-gradient-to-r from-[#ff4500] to-[#ff7300] text-white text-[10px] font-black px-3 py-1.5 rounded-br-2xl shadow-md z-10 flex items-center leading-none tracking-wide">
@@ -56,13 +64,13 @@ const Card = ({ product }) => {
                 {product.image ? (
                     <img src={product.image} alt={product.name} className="w-full h-full object-contain p-4 drop-shadow-md" />
                 ) : (
-                    <span className="text-[80px] drop-shadow-md">{product.icon || '📦'}</span>
+                    <span className="drop-shadow-md text-gray-300">{product.icon || <Package size={80} />}</span>
                 )}
             </div>
 
             {/* Delivery Badge */}
             <div className="bg-red-50/80 border border-red-100 text-[#e62020] text-[9px] font-black px-2.5 py-1 rounded-lg flex w-max items-center gap-1.5 mb-3 shadow-[0_2px_8px_-2px_rgba(230,32,32,0.1)]">
-                <span className="text-[12px]">⚡</span> 10 MINS
+                <span className="text-[12px]"><Zap size={12} className="text-yellow-500" /></span> 10 MINS
             </div>
 
             {/* Info */}
@@ -82,7 +90,12 @@ const Card = ({ product }) => {
                     {qty === 0 ? (
                         <button
                             onClick={onAdd}
-                            className="bg-[#e62020] text-white text-[13px] font-black px-6 py-2.5 rounded-xl hover:bg-[#cc1b1b] shadow-xl shadow-[rgba(230,32,32,0.2)] transition-all duration-300 uppercase tracking-widest active:scale-90 border-none"
+                            disabled={product.total_stock === 0}
+                            className={`text-[13px] font-black px-5 py-2.5 rounded-xl uppercase tracking-widest transition-all duration-300 border-none ${
+                                product.total_stock === 0
+                                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed hidden sm:block'
+                                    : 'bg-[#e62020] text-white hover:bg-[#cc1b1b] shadow-xl shadow-[rgba(230,32,32,0.2)] active:scale-90'
+                            }`}
                         >
                             ADD
                         </button>
@@ -90,7 +103,7 @@ const Card = ({ product }) => {
                         <div className="flex items-center bg-[#e62020] shadow-xl shadow-[rgba(230,32,32,0.2)] text-white rounded-xl h-[38px] text-sm font-bold overflow-hidden w-[82px] justify-between px-1">
                             <button onClick={onDec} className="w-7 h-full flex items-center justify-center hover:bg-black/10 active:bg-black/20 transition-colors font-black">−</button>
                             <span className="text-[13px] flex-1 text-center font-black">{qty}</span>
-                            <button onClick={onInc} className="w-7 h-full flex items-center justify-center hover:bg-black/10 active:bg-black/20 transition-colors font-black">+</button>
+                            <button onClick={onInc} disabled={qty >= product.total_stock} className={`w-7 h-full flex items-center justify-center transition-colors font-black ${qty >= product.total_stock ? 'opacity-50 cursor-not-allowed' : 'hover:bg-black/10 active:bg-black/20'}`}>+</button>
                         </div>
                     )}
                 </div>
@@ -101,7 +114,7 @@ const Card = ({ product }) => {
 
 /* ─── PRODUCT SECTION ─── */
 const ProductSection = ({ section }) => (
-    <section className="mb-16">
+    <section id={section.id} className="mb-16 scroll-mt-[100px]">
         <div className="flex items-center justify-between px-4 py-6">
             <div>
                 <h2 className="text-[32px] md:text-[36px] font-black text-gray-900 tracking-tighter uppercase leading-none">{section.title}</h2>
@@ -183,7 +196,7 @@ const Home = () => {
                         {/* Title Features */}
                         <div className="flex gap-4 mb-4">
                              <div className="flex items-center gap-2 bg-[#b91616] px-4 py-2 rounded-[14px] shadow-inner border border-white/10">
-                                 <span className="text-[20px] md:text-[24px]">⏱️</span>
+                                 <span className="text-[20px] md:text-[24px]"><Clock size={24} className="text-white" /></span>
                                  <div className="flex flex-col leading-none">
                                      <span className="text-[18px] md:text-[22px] font-black tracking-tighter text-white">10</span>
                                      <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-[#ffe600]">Minute<br/>Delivery</span>
@@ -191,7 +204,7 @@ const Home = () => {
                              </div>
                              
                              <div className="flex items-center gap-2 bg-[#b91616] px-4 py-2 rounded-[14px] shadow-inner border border-white/10">
-                                 <span className="text-[20px] md:text-[24px]">📦</span>
+                                 <span className="text-[20px] md:text-[24px]"><Package size={24} className="text-white" /></span>
                                  <div className="flex flex-col leading-none justify-center">
                                      <span className="text-[12px] md:text-[14px] font-black tracking-wide text-white">FREE</span>
                                      <span className="text-[11px] md:text-[13px] font-bold text-white/90">Delivery</span>
@@ -206,30 +219,20 @@ const Home = () => {
                 </div>
 
                 {/* ── TAXONOMY BAR ── */}
-                <div className="bg-white/50 backdrop-blur-sm mt-8 rounded-[32px] px-10 py-8 shadow-xl shadow-gray-100/50 border border-gray-100 flex flex-col gap-6">
-                    <div
-                        className="flex justify-start overflow-x-auto scroll-hide pb-2 gap-10 md:gap-14"
-                        style={{ scrollbarWidth: 'none' }}
-                    >
-                        {CATEGORY_DATA.map((cat) => (
+                <div className="mt-8">
+                    <div className="flex items-center justify-between mb-4 px-2">
+                        <h3 className="text-[14px] font-black text-gray-900 uppercase tracking-[0.2em]">Quick Jump</h3>
+                        <div className="h-px flex-1 bg-gray-100 ml-6 hidden md:block"></div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-3 md:gap-4 w-full">
+                        {(dynamicSections.length > 0 ? dynamicSections : CATEGORY_DATA).map((cat) => (
                             <Link
                                 key={cat.id}
                                 to={`/category/${cat.id}`}
-                                className="flex flex-col items-center gap-4 flex-shrink-0 group w-[100px]"
+                                className="flex-1 min-w-[160px] md:min-w-[240px] px-4 py-4 bg-white border-2 border-gray-100 rounded-2xl text-[12px] font-black text-gray-800 uppercase tracking-widest hover:border-[#e62020] hover:text-[#e62020] hover:shadow-xl hover:shadow-red-500/10 transition-all duration-300 active:scale-95 text-center flex items-center justify-center min-h-[64px]"
                             >
-                                <div
-                                    style={{ 
-                                        backgroundColor: cat.bg,
-                                        backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 100%)' 
-                                    }}
-                                    className="w-[96px] h-[96px] rounded-[30px] flex items-center justify-center text-[48px] group-hover:scale-[1.15] group-hover:-translate-y-3 group-hover:shadow-[0_20px_40px_rgba(230,32,32,0.15)] transition-all duration-500 shadow-md border-2 border-white relative overflow-hidden active:scale-95"
-                                >
-                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-white/20 transition-opacity duration-300" />
-                                    <span className="relative z-10 drop-shadow-md group-hover:rotate-6 transition-transform">{cat.icon}</span>
-                                </div>
-                                <span className="text-[13px] font-black text-gray-800 text-center leading-tight tracking-tight group-hover:text-[#e62020] transition-colors uppercase">
-                                    {cat.name}
-                                </span>
+                                {cat.name || cat.title}
                             </Link>
                         ))}
                     </div>
@@ -266,7 +269,7 @@ const Home = () => {
                     </div>
 
                     <div className="relative z-20 text-white max-w-lg">
-                        <span className="bg-white/10 px-5 py-2 rounded-full text-[11px] font-black tracking-widest uppercase mb-6 inline-block border border-white/20 backdrop-blur-sm shadow-lg text-[#ffd700]">Weekend Vault 🍾</span>
+                        <span className="bg-white/10 px-5 py-2 rounded-full text-[11px] font-black tracking-widest uppercase mb-6 flex items-center justify-center gap-2 w-max border border-white/20 backdrop-blur-sm shadow-lg text-[#ffd700]">Weekend Vault <Wine size={14} className="text-[#ffd700]" /></span>
                         <h2 className="text-[36px] md:text-[56px] font-black leading-[1] mb-4 tracking-tighter text-white drop-shadow-2xl uppercase">Premium<br/>Liquors & Smoke</h2>
                         <p className="text-[18px] md:text-[22px] text-white/90 font-black mb-10 flex items-center gap-3">Auth Key: <span className="font-black bg-white/10 px-4 py-1.5 rounded-xl tracking-widest text-[#00ffcc] border border-white/20 shadow-inner drop-shadow-md">PARTY20</span></p>
                         <div className="inline-block bg-[#00ffcc] text-[#0f082e] font-black text-[16px] px-10 py-4 rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-2xl hover:shadow-[#00ffcc]/30 uppercase tracking-[0.1em]">Explore Collection</div>
@@ -325,14 +328,13 @@ const Home = () => {
                                 <span className="text-[15px] font-black text-gray-800">Download App</span>
                                 <div className="flex gap-3">
                                     <button className="bg-gray-900 text-white flex items-center justify-center gap-2 px-3 py-2 rounded-[10px] hover:bg-black transition-all min-w-[130px]">
-                                        <span className="text-[20px] leading-none mb-1 text-white"></span>
                                         <div className="flex flex-col items-start leading-none text-left">
                                             <span className="text-[9px] font-semibold opacity-90 mb-0.5">Download on the</span>
                                             <span className="text-[13px] font-bold">App Store</span>
                                         </div>
                                     </button>
                                     <button className="bg-gray-900 text-white flex items-center justify-center gap-2 px-3 py-2 rounded-[10px] hover:bg-black transition-all min-w-[130px]">
-                                        <span className="text-[18px] leading-none text-[#ffeb3b]">▶️</span>
+                                        <span className="text-[18px] leading-none text-[#ffeb3b]"><Play size={18} /></span>
                                         <div className="flex flex-col items-start leading-none text-left">
                                             <span className="text-[9px] font-semibold opacity-90 mb-0.5">GET IT ON</span>
                                             <span className="text-[13px] font-bold">Google Play</span>
@@ -344,7 +346,7 @@ const Home = () => {
                             <div className="flex items-center gap-3">
                                 {[
                                     { icon: 'f', label: 'Facebook' }, 
-                                    { icon: '𝕏', label: 'X' }, 
+                                    { icon: 'X', label: 'X' }, 
                                     { icon: 'in', label: 'LinkedIn' }, 
                                     { icon: 'ig', label: 'Instagram' }
                                 ].map((item, idx) => (

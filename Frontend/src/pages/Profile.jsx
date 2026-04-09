@@ -25,8 +25,8 @@ const Profile = () => {
     const fetchAddresses = async () => {
         try {
             setLoading(true);
-            const res = await api.get('/addresses/');
-            setAddresses(res.data);
+            const res = await api.get('addresses/');
+            setAddresses(Array.isArray(res.data) ? res.data : (res.data.results || []));
         } catch (error) {
             console.error("Failed to fetch addresses:", error);
         } finally {

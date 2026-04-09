@@ -11,6 +11,7 @@ from .serializers import (
 from apps.warehouses.utils import find_nearest_warehouse, deduct_inventory
 from apps.offers.utils import apply_offer_to_price
 from .tasks import notify_warehouse_new_order
+from apps.offers.models import Coupon
 
 
 class CartView(APIView):
@@ -119,7 +120,25 @@ class PlaceOrderView(APIView):
         discount_total = 0
         delivery_fee = 40  # Flat fee as per user requirements
         
-        # Pre-fetch items and their offers to avoid N queries
+        # Check for Coupon
+        coupon_code = request.data.get('coupon_code')
+        coupon_discount_val = 0
+        applied_coupon = None
+        
+        if coupon_code:
+            try:
+                # Need to calculate subtotal first to check coupon validity
+                temp_subtotal = sum(item.product.price * item.quantity for item in cart_items)
+                c = Coupon.objects.get(code=coupon_code.upper(), is_active=True)
+                is_valid, msg = c.is_valid(temp_subtotal)
+                if is_valid:
+                    applied_coupon = c
+                    # We will apply this to the final total after item-level discounts
+                else:
+                    return Response({'detail': msg}, status=400)
+            except Coupon.DoesNotExist:
+                return Response({'detail': 'Invalid coupon code.'}, status=400)
+
         order = Order.objects.create(
             user=request.user,
             warehouse=nearest_wh,
@@ -137,7 +156,6 @@ class PlaceOrderView(APIView):
 
         order_items_to_create = []
         for item in cart_items:
-            # item.product is already fetched by select_related
             pricing = apply_offer_to_price(item.product, offer=offers_map.get(item.product.id))
             final_price = pricing['final_price']
             discount = pricing['discount_amount']
@@ -159,8 +177,18 @@ class PlaceOrderView(APIView):
 
         # Update order totals
         order.subtotal = subtotal
-        order.discount_amount = discount_total
-        order.total_amount = subtotal - discount_total + delivery_fee
+        
+        # Initial discount from item-level offers
+        total_discount = discount_total
+        
+        # Add Coupon Discount if applicable
+        if applied_coupon:
+            remaining_total = subtotal - discount_total
+            coupon_discount_val = (remaining_total * (applied_coupon.discount_percentage / 100))
+            total_discount += coupon_discount_val
+
+        order.discount_amount = total_discount
+        order.total_amount = subtotal - total_discount + delivery_fee
         order.save()
 
         # Deduct inventory
@@ -177,6 +205,33 @@ class PlaceOrderView(APIView):
             pass
 
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+
+
+class ValidateCouponView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        code = request.data.get('code')
+        cart_total = request.data.get('cart_total', 0)
+        
+        if not code:
+            return Response({'detail': 'Coupon code is required.'}, status=400)
+            
+        try:
+            coupon = Coupon.objects.get(code=code.upper(), is_active=True)
+            is_valid, msg = coupon.is_valid(float(cart_total))
+            
+            if not is_valid:
+                return Response({'valid': False, 'detail': msg}, status=400)
+                
+            return Response({
+                'valid': True,
+                'code': coupon.code,
+                'discount_percentage': coupon.discount_percentage,
+                'description': coupon.description
+            })
+        except Coupon.DoesNotExist:
+            return Response({'valid': False, 'detail': 'Invalid coupon code.'}, status=404)
 
 
 class OrderListView(generics.ListAPIView):

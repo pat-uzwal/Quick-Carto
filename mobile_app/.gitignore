@@ -51,3 +51,23 @@ db.sqlite3
 build/
 .dart_tool/
 node_modules/
+# VS Code
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Node
+node_modules/
+dist/
+build/
+
+# Flutter / Dart
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages

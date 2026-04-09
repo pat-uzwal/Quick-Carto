@@ -5,11 +5,12 @@ import { clearCart } from '../features/cart/cartSlice';
 import KhaltiCheckout from 'khalti-checkout-web';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
-import { MapPin, CheckCircle2, Wallet, CreditCard, ChevronRight, Navigation2, Loader2 } from 'lucide-react';
+import { MapPin, CheckCircle2, Wallet, CreditCard, ChevronRight, Navigation2, Loader2, Ticket, Check, AlertTriangle } from 'lucide-react';
 
 const Checkout = () => {
     const { items, totalAmount } = useSelector((state) => state.cart);
     const { user } = useSelector((state) => state.auth);
+    const products = useSelector((state) => state.products?.items || []);
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
@@ -22,6 +23,12 @@ const Checkout = () => {
     const [nearestWarehouse, setNearestWarehouse] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState('cod'); // cod or khalti
+    
+    // Coupon States
+    const [couponCode, setCouponCode] = useState('');
+    const [appliedCoupon, setAppliedCoupon] = useState(null);
+    const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+    const [couponError, setCouponError] = useState('');
 
     useEffect(() => {
         if (items.length === 0) {
@@ -105,6 +112,7 @@ const Checkout = () => {
                 delivery_address: `${address.street}, ${address.area}, ${address.city}`,
                 delivery_lat: user?.latitude ? parseFloat(user.latitude).toFixed(6) : "27.717200",
                 delivery_lng: user?.longitude ? parseFloat(user.longitude).toFixed(6) : "85.324000",
+                coupon_code: appliedCoupon?.code || null
             });
             const order = orderRes.data;
 
@@ -153,6 +161,30 @@ const Checkout = () => {
         navigate('/orders');
     };
 
+    const handleApplyCoupon = async () => {
+        if (!couponCode.trim()) return;
+        setIsValidatingCoupon(true);
+        setCouponError('');
+        try {
+            const res = await api.post('/coupons/validate/', {
+                code: couponCode,
+                cart_total: totalAmount
+            });
+            setAppliedCoupon(res.data);
+            setCouponCode('');
+        } catch (err) {
+            setCouponError(err.response?.data?.detail || 'Invalid coupon');
+            setAppliedCoupon(null);
+        } finally {
+            setIsValidatingCoupon(false);
+        }
+    };
+
+    const handleRemoveCoupon = () => {
+        setAppliedCoupon(null);
+        setCouponError('');
+    };
+
     const rawDelivery = localStorage.getItem('deliveryFee');
     const rawPlatform = localStorage.getItem('platformFee');
     const rawThreshold = localStorage.getItem('freeThreshold');
@@ -163,7 +195,22 @@ const Checkout = () => {
 
     const deliveryFee = totalAmount > 0 && totalAmount < currentThreshold ? currentDelivery : 0;
     const platformFee = currentPlatform;
-    const grandTotal = totalAmount + deliveryFee + platformFee;
+    
+    // Calculate totals with coupon
+    const subtotalAfterOffers = totalAmount;
+    let couponDiscount = 0;
+    if (appliedCoupon) {
+        couponDiscount = Math.round((subtotalAfterOffers * appliedCoupon.discount_percentage) / 100);
+    }
+    
+    const grandTotal = subtotalAfterOffers - couponDiscount + deliveryFee + platformFee;
+
+    // Validate any out of stock items in the cart dynamically
+    const outOfStockItems = items.filter(item => {
+        const productData = products.find(p => String(p.id || p._id) === String(item.id || item._id));
+        return productData && productData.total_stock < item.quantity;
+    });
+    const hasOutOfStock = outOfStockItems.length > 0;
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
@@ -249,10 +296,66 @@ const Checkout = () => {
                             </div>
                         </div>
 
+                        {/* Coupon Section */}
+                        <div className="bg-white p-8 rounded-[32px] shadow-xl shadow-gray-200/40 border border-gray-100">
+                            <div className="flex items-center gap-3 mb-8">
+                                <div className="p-3 bg-yellow-50 text-yellow-600 rounded-2xl"><Ticket size={24} /></div>
+                                <div>
+                                    <h2 className="text-xl font-black uppercase tracking-tight text-gray-900">Promo Code</h2>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mt-1">Have an Auth Key?</p>
+                                </div>
+                            </div>
+
+                            {appliedCoupon ? (
+                                <div className="bg-green-50 border-2 border-dashed border-green-200 rounded-2xl p-6 flex justify-between items-center animate-in zoom-in-95">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm text-green-500 font-black"><Check size={24} /></div>
+                                        <div>
+                                            <p className="text-sm font-black text-gray-900 uppercase tracking-tight">Code {appliedCoupon.code} Applied</p>
+                                            <p className="text-[10px] font-black text-green-600 uppercase tracking-widest">{appliedCoupon.discount_percentage}% Extra Discount Secured</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={handleRemoveCoupon} className="text-xs font-black uppercase text-red-500 hover:text-red-700 transition-colors px-4 py-2 hover:bg-red-50 rounded-xl">Remove</button>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="flex gap-3">
+                                        <input 
+                                            type="text" 
+                                            value={couponCode}
+                                            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                                            placeholder="ENTER AUTH KEY (e.g. PARTY20)"
+                                            className="flex-1 bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-xs font-black uppercase tracking-widest focus:outline-none focus:border-yellow-400 focus:bg-white transition-all placeholder:text-gray-300"
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={handleApplyCoupon}
+                                            disabled={isValidatingCoupon || !couponCode}
+                                            className="px-8 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg active:scale-95 disabled:opacity-50 transition-all"
+                                        >
+                                            {isValidatingCoupon ? <Loader2 size={16} className="animate-spin" /> : 'Apply'}
+                                        </button>
+                                    </div>
+                                    {couponError && <p className="text-[10px] font-black uppercase text-red-500 tracking-widest ml-1 animate-in slide-in-from-left-2 flex items-center gap-1"><AlertTriangle size={12} /> {couponError}</p>}
+                                </div>
+                            )}
+                        </div>
+
                         {/* Submit Button */}
-                        <button type="submit" disabled={isProcessing} className="w-full flex items-center justify-center gap-3 bg-[#e62020] hover:bg-[#cc1b1b] text-white p-6 rounded-[24px] text-lg font-black uppercase tracking-widest shadow-xl shadow-[rgba(230,32,32,0.3)] transition-all active:scale-95 disabled:opacity-50 group">
-                            {isProcessing ? <Loader2 className="animate-spin" /> : <>Place Order • <span className="text-red-200">NPR {grandTotal}</span> <ChevronRight size={24} className="group-hover:translate-x-2 transition-transform"/></>}
-                        </button>
+                        <div className="space-y-4">
+                            {hasOutOfStock && (
+                                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3">
+                                    <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={18} />
+                                    <div>
+                                        <p className="text-xs font-black text-red-600 uppercase tracking-widest leading-none mb-1">Items Out of Stock</p>
+                                        <p className="text-[10px] font-bold text-red-500 uppercase">Please remove or reduce quantity for: {outOfStockItems.map(i => i.name).join(', ')}</p>
+                                    </div>
+                                </div>
+                            )}
+                            <button type="submit" disabled={isProcessing || hasOutOfStock} className="w-full flex items-center justify-center gap-3 bg-[#e62020] hover:bg-[#cc1b1b] text-white p-6 rounded-[24px] text-lg font-black uppercase tracking-widest shadow-xl shadow-[rgba(230,32,32,0.3)] transition-all active:scale-95 disabled:opacity-50 group">
+                                {isProcessing ? <Loader2 className="animate-spin" /> : <>Place Order • <span className="text-red-200">NPR {grandTotal}</span> <ChevronRight size={24} className="group-hover:translate-x-2 transition-transform"/></>}
+                            </button>
+                        </div>
                     </form>
                 </div>
 
@@ -289,6 +392,12 @@ const Checkout = () => {
                                 <span>Cart Total</span>
                                 <span>Rs {totalAmount}</span>
                             </div>
+                            {appliedCoupon && (
+                                <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-green-600">
+                                    <span>Coupon ({appliedCoupon.code})</span>
+                                    <span>- Rs {couponDiscount}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-gray-400">
                                 <span>Handling Fee</span>
                                 <span>Rs {platformFee}</span>

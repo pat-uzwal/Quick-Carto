@@ -13,7 +13,7 @@ class CategoryListView(generics.ListAPIView):
 
 
 class ProductListView(generics.ListAPIView):
-    queryset = Product.objects.filter(is_active=True).select_related('category')
+    queryset = Product.objects.filter(is_active=True).select_related('category').prefetch_related('inventory')
     serializer_class = ProductSerializer
     permission_classes = (AllowAny,)
     pagination_class = None
@@ -25,6 +25,6 @@ class ProductListView(generics.ListAPIView):
 
 
 class ProductDetailView(generics.RetrieveAPIView):
-    queryset = Product.objects.filter(is_active=True)
+    queryset = Product.objects.filter(is_active=True).prefetch_related('inventory')
     serializer_class = ProductSerializer
     permission_classes = (AllowAny,)

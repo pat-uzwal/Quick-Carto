@@ -26,27 +26,26 @@ def find_nearest_warehouse(user_lat: float, user_lng: float, product_quantities:
         Prefetch('inventory', queryset=Inventory.objects.filter(product_id__in=product_ids))
     )
 
-    eligible_warehouses = []
+    warehouses = []
     for warehouse in active_warehouses:
-        # Create a map for this warehouse's stock
-        stock_map = {inv.product_id: inv.stock_quantity for inv in warehouse.inventory.all()}
+        distance = haversine_distance(user_lat, user_lng, float(warehouse.latitude), float(warehouse.longitude))
+        warehouses.append((warehouse, distance))
 
-        
-        has_all_stock = True
-        for pid, qty in product_quantities.items():
-            if stock_map.get(pid, 0) < qty:
-                has_all_stock = False
-                break
-        
-        if has_all_stock:
-            distance = haversine_distance(user_lat, user_lng, float(warehouse.latitude), float(warehouse.longitude))
-            eligible_warehouses.append((warehouse, distance))
-
-    if not eligible_warehouses:
+    if not warehouses:
         return None
 
-    eligible_warehouses.sort(key=lambda x: x[1])
-    return eligible_warehouses[0][0]
+    # Sort to find the absolute nearest warehouse to the user
+    warehouses.sort(key=lambda x: x[1])
+    nearest_warehouse = warehouses[0][0]
+
+    # Verify if THIS nearest warehouse has the stock
+    stock_map = {inv.product_id: inv.stock_quantity for inv in nearest_warehouse.inventory.all()}
+    
+    for pid, qty in product_quantities.items():
+        if stock_map.get(pid, 0) < qty:
+            return None # Fail the order because the nearest warehouse is out of stock
+
+    return nearest_warehouse
 
 
 def deduct_inventory(warehouse, order_items):

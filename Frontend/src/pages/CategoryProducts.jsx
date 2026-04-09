@@ -2,14 +2,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchProducts } from '../features/products/productSlice';
-import { ChevronRight, Filter, LayoutGrid, List as ListIcon, AlertCircle, ShoppingBag, Store, ChevronDown } from 'lucide-react';
+import { ChevronRight, Filter, LayoutGrid, List as ListIcon, AlertCircle, ShoppingBag, Store, ChevronDown, ShoppingCart, Cherry, Wine, Sparkles, Package } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 
 const CATEGORIES = [
-    { id: 'grocery-and-kitchen', name: 'Grocery & Kitchen', icon: '🛒', sub: ['Rice', 'Daal', 'Cooking Oil', 'Tea & Coffee'] },
-    { id: 'snacks-and-drinks', name: 'Snacks & Drinks', icon: '🍿', sub: ['Chips, Cheese Balls, Rings & Sticks', 'Chocolates & Sweets', 'Soft Drinks, Coke & Juices'] },
-    { id: 'liquors-and-smoke', name: 'Liquors & Smokes', icon: '🍾', sub: ['Hard Drinks & Liquors', 'Smokes'] },
-    { id: 'beauty-and-personal-care', name: 'Beauty & Personal Care', icon: '💄', sub: ['Baby Care Essentials', 'Hair Care Essentials', 'Skin Care Essentials', 'Deodorants & Perfumes'] },
+    { id: 'grocery-and-kitchen', name: 'Grocery & Kitchen', icon: <ShoppingCart />, sub: ['Rice', 'Daal', 'Cooking Oil', 'Tea & Coffee'] },
+    { id: 'snacks-and-drinks', name: 'Snacks & Drinks', icon: <Cherry />, sub: ['Chips, Cheese Balls, Rings & Sticks', 'Chocolates & Sweets', 'Soft Drinks, Coke & Juices'] },
+    { id: 'liquors-and-smoke', name: 'Liquors & Smokes', icon: <Wine />, sub: ['Hard Drinks & Liquors', 'Smokes'] },
+    { id: 'beauty-and-personal-care', name: 'Beauty & Personal Care', icon: <Sparkles />, sub: ['Baby Care Essentials', 'Hair Care Essentials', 'Skin Care Essentials', 'Deodorants & Perfumes'] },
 ];
 
 const CategoryProducts = () => {
@@ -19,7 +19,7 @@ const CategoryProducts = () => {
     
     const currentCategory = useMemo(() => 
         CATEGORIES.find(c => c.id === categoryId) || 
-        { id: categoryId, name: categoryId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '), icon: '📦', sub: ['All'] }
+        { id: categoryId, name: categoryId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '), icon: <Package />, sub: ['All'] }
     , [categoryId]);
 
     const [activeSub, setActiveSub] = useState('All');

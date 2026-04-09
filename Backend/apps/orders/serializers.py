@@ -35,14 +35,27 @@ class CartSerializer(serializers.ModelSerializer):
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
+    product_image = serializers.SerializerMethodField()
     subtotal = serializers.ReadOnlyField()
 
     class Meta:
         model = OrderItem
         fields = (
-            'id', 'product', 'product_name', 'quantity',
+            'id', 'product', 'product_name', 'product_image', 'quantity',
             'unit_price', 'discount_percentage', 'final_price', 'subtotal', 'applied_offer',
         )
+
+    def get_product_image(self, obj):
+        from urllib.parse import quote
+        raw = obj.product.image_url or ''
+        if not raw:
+            return ''
+        if raw.startswith('data:'):
+            return raw
+        if raw.startswith('http'):
+            return raw
+        parts = raw.split('/')
+        return '/'.join(quote(part, safe='') for part in parts)
 
 
 class OrderRatingSerializer(serializers.ModelSerializer):

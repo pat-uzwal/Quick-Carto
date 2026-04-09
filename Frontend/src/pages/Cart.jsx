@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { updateQuantity, removeFromCart, clearCart } from '../features/cart/cartSlice';
-import { ShoppingBasket, Trash2, ArrowLeft, ChevronRight, Zap, ShieldCheck, Minus, Plus, MapPin } from 'lucide-react';
+import { ShoppingBasket, Trash2, ArrowLeft, ChevronRight, Zap, ShieldCheck, Minus, Plus, MapPin, Package } from 'lucide-react';
 
 const Cart = () => {
     const { items, totalAmount, totalItems } = useSelector((state) => state.cart);
     const { user, detectedLocation } = useSelector((state) => state.auth);
+    const products = useSelector((state) => state.products?.items || []);
     const [nearestHub, setNearestHub] = useState(null);
     const [loadingHub, setLoadingHub] = useState(false);
     const dispatch = useDispatch();
@@ -120,21 +121,10 @@ const Cart = () => {
                                 <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-8 pb-10 border-b border-gray-100 last:border-0 last:pb-0 group">
                                     <div className="flex items-center gap-8">
                                         <div className="w-24 h-24 bg-gray-50 rounded-[24px] flex items-center justify-center shrink-0 border border-gray-200 group-hover:bg-red-50 transition-colors duration-500 overflow-hidden text-4xl relative">
-                                            {(item.image && (
-                                                item.image.trim().startsWith('http') || 
-                                                item.image.trim().startsWith('/') || 
-                                                item.image.trim().startsWith('data:') || 
-                                                item.image.trim().includes('/images/') ||
-                                                /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(item.image.trim())
-                                            )) ? (
+                                            {(item.image) ? (
                                                 <>
                                                     <img 
-                                                        src={(() => {
-                                                            const path = (item.image.trim().startsWith('http') || item.image.trim().startsWith('data:')) 
-                                                                ? item.image.trim() 
-                                                                : (item.image.trim().startsWith('/') ? item.image.trim() : `/${item.image.trim()}`);
-                                                            return encodeURI(path);
-                                                        })()} 
+                                                        src={item.image} 
                                                         alt={item.name} 
                                                         className="w-full h-full object-contain p-2 mix-blend-multiply drop-shadow-sm" 
                                                         onError={(e) => {
@@ -143,10 +133,12 @@ const Cart = () => {
                                                             if (e.target.nextSibling) e.target.nextSibling.classList.remove('hidden');
                                                         }}
                                                     />
-                                                    <span className="drop-shadow-sm hidden text-4xl">📦</span>
+                                                    <span className="drop-shadow-sm hidden text-gray-300 mx-auto justify-center w-full flex"><Package size={40} /></span>
                                                 </>
                                             ) : (
-                                                <span className="drop-shadow-sm text-xs break-all">{item.image || '📦'}</span>
+                                                <div className="w-full h-full bg-gray-50 flex items-center justify-center text-gray-300">
+                                                    <Package size={40} />
+                                                </div>
                                             )}
                                         </div>
                                         <div className="flex flex-col gap-1.5">
@@ -154,8 +146,21 @@ const Cart = () => {
                                                 {item.name}
                                             </h3>
                                             <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                                                <span className="text-[11px] font-black text-gray-500 uppercase tracking-widest leading-none">In Stock • Fresh Pack</span>
+                                                {(() => {
+                                                    const prod = products.find(p => String(p.id || p._id) === String(item.id || item._id));
+                                                    const isOutOfStock = prod && prod.total_stock < item.quantity;
+                                                    return isOutOfStock ? (
+                                                        <>
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+                                                            <span className="text-[11px] font-black text-red-500 uppercase tracking-widest leading-none">Out of Stock ({prod.total_stock} left)</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                                            <span className="text-[11px] font-black text-gray-500 uppercase tracking-widest leading-none">In Stock • Fresh Pack</span>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                             <div className="text-[15px] font-black text-gray-900 mt-2">रू {item.price}</div>
                                         </div>
@@ -169,7 +174,16 @@ const Cart = () => {
                                         <span className="w-12 text-center font-black text-lg">{item.quantity}</span>
                                         <button
                                             onClick={() => handleIncrement(item.id, item.quantity)}
-                                            className="flex-1 h-full hover:bg-black/10 transition-colors flex items-center justify-center"
+                                            disabled={(() => {
+                                                const prod = products.find(p => String(p.id || p._id) === String(item.id || item._id));
+                                                return prod && item.quantity >= prod.total_stock;
+                                            })()}
+                                            className={`flex-1 h-full flex items-center justify-center transition-colors ${
+                                                (() => {
+                                                    const prod = products.find(p => String(p.id || p._id) === String(item.id || item._id));
+                                                    return prod && item.quantity >= prod.total_stock ? 'opacity-50 cursor-not-allowed' : 'hover:bg-black/10'
+                                                })()
+                                            }`}
                                         ><Plus size={20} strokeWidth={4} /></button>
                                     </div>
                                 </div>
@@ -228,15 +242,31 @@ const Cart = () => {
                                 <ShieldCheck size={14} /> Total Secure Transaction
                             </div>
 
-                            <button
-                                onClick={() => navigate('/checkout')}
-                                className="w-full bg-[#e62020] hover:bg-[#cc1b1b] text-white font-black py-6 px-10 rounded-[28px] transition-all shadow-xl shadow-[rgba(230,32,32,0.25)] text-[15px] uppercase tracking-widest flex justify-between items-center border-b-8 border-black/10 active:scale-95 group"
-                            >
-                                <span className="group-hover:scale-110 transition-transform">रू {grandTotal}</span>
-                                <div className="flex items-center gap-2 group-hover:translate-x-2 transition-transform">
-                                    Proceed <ChevronRight size={20} />
-                                </div>
-                            </button>
+                            {(() => {
+                                const hasOutOfStock = items.some(item => {
+                                    const p = products.find(prod => String(prod.id || prod._id) === String(item.id || item._id));
+                                    return p && p.total_stock < item.quantity;
+                                });
+                                
+                                return (
+                                    <button
+                                        onClick={() => navigate('/checkout')}
+                                        disabled={hasOutOfStock}
+                                        className={`w-full text-white font-black py-6 px-10 rounded-[28px] transition-all shadow-xl text-[15px] uppercase tracking-widest flex justify-between items-center border-b-8 group ${
+                                            hasOutOfStock 
+                                                ? 'bg-gray-300 border-gray-400 cursor-not-allowed shadow-none' 
+                                                : 'bg-[#e62020] hover:bg-[#cc1b1b] shadow-[rgba(230,32,32,0.25)] border-black/10 active:scale-95'
+                                        }`}
+                                    >
+                                        <span className={hasOutOfStock ? '' : 'group-hover:scale-110 transition-transform'}>
+                                            {hasOutOfStock ? 'PLEASE FIX BASKET' : `रू ${grandTotal}`}
+                                        </span>
+                                        <div className={`flex items-center gap-2 transition-transform ${hasOutOfStock ? '' : 'group-hover:translate-x-2'}`}>
+                                            {hasOutOfStock ? 'SOME ITEMS OUT OF STOCK' : 'Proceed'} <ChevronRight size={20} />
+                                        </div>
+                                    </button>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>

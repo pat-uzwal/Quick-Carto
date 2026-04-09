@@ -19,7 +19,8 @@ export const fetchProducts = createAsyncThunk(
                 discount: p.discount_percentage,
                 weight: p.weight_volume,
                 image: p.image_url,
-                is_active: p.is_active
+                is_active: p.is_active,
+                total_stock: p.total_stock
             }));
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to fetch products');
@@ -43,7 +44,8 @@ export const fetchProductById = createAsyncThunk(
                 discount: p.discount_percentage,
                 weight: p.weight_volume,
                 image: p.image_url,
-                is_active: p.is_active
+                is_active: p.is_active,
+                total_stock: p.total_stock
             };
         } catch (error) {
             return rejectWithValue(error.response?.data?.message || 'Failed to fetch product');

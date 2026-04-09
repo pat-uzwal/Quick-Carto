@@ -106,28 +106,36 @@ class _CategoryScreenState extends State<CategoryScreen> {
       backgroundColor: Colors.white,
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator(color: Color(0xFFE62020)))
-        : Column(
-            children: [
-              // Top Shadow Area with Back Button Title
-              Container(
-                padding: const EdgeInsets.only(top: 60, bottom: 20, left: 16, right: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
-                ),
-                child: const Row(
-                  children: [
-                    Text('CATEGORIES', style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _categories.length,
-                  itemBuilder: (ctx, i) => _buildCategorySection(_categories[i]),
+        : CustomScrollView(
+            physics: const ClampingScrollPhysics(),
+            cacheExtent: 1000,
+            slivers: [
+              // Unified Header that scrolls with content
+              SliverToBoxAdapter(
+                child: Container(
+                  padding: const EdgeInsets.only(top: 60, bottom: 20, left: 24, right: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+                  ),
+                  child: const Text(
+                    'CATEGORIES', 
+                    style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.5)
+                  ),
                 ),
               ),
+              // Category Content
+              SliverPadding(
+                padding: const EdgeInsets.all(20),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (ctx, i) => _buildCategorySection(_categories[i]),
+                    childCount: _categories.length,
+                  ),
+                ),
+              ),
+              // Simple spacer at bottom
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
             ],
           ),
       bottomNavigationBar: BottomNavigationBar(
@@ -139,16 +147,16 @@ class _CategoryScreenState extends State<CategoryScreen> {
         type: BottomNavigationBarType.fixed,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-        items: [
-          const BottomNavigationBarItem(icon: Icon(LucideIcons.home), label: "Home"),
-          const BottomNavigationBarItem(icon: Icon(LucideIcons.layoutGrid), label: "Category"),
-          const BottomNavigationBarItem(icon: Icon(LucideIcons.shoppingCart), label: "Cart"),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(LucideIcons.home), label: "Home"),
+          BottomNavigationBarItem(icon: Icon(LucideIcons.layoutGrid), label: "Category"),
+          BottomNavigationBarItem(icon: Icon(LucideIcons.shoppingCart), label: "Cart"),
         ],
         onTap: (index) {
           if (index == 0) {
-            Navigator.pushReplacement(context, PageRouteBuilder(pageBuilder: (_, __, ___) => HomeScreen(), transitionDuration: Duration.zero));
+            Navigator.pushReplacement(context, PageRouteBuilder(pageBuilder: (_, __, ___) => const HomeScreen(), transitionDuration: Duration.zero));
           } else if (index == 2) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => CartScreen()));
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const CartScreen()));
           }
         },
       ),
@@ -219,22 +227,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
   Widget _buildGroupTile(String parentName, String title, List<dynamic> allProducts) {
-    return GestureDetector(
+    return _InteractiveCategoryTile(
+      title: title,
       onTap: () => _openProductList(parentName, title, allProducts),
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade100),
-        ),
-        child: Text(
-          title.toUpperCase(),
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.black87, letterSpacing: 0.5),
-        ),
-      ),
     );
   }
 
@@ -251,7 +246,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
       ),
     );
   }
-
   Widget _buildErrorView() {
     return Center(
       child: Padding(
@@ -275,6 +269,65 @@ class _CategoryScreenState extends State<CategoryScreen> {
               child: const Text('RETRY', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InteractiveCategoryTile extends StatefulWidget {
+  final String title;
+  final VoidCallback onTap;
+
+  const _InteractiveCategoryTile({
+    required this.title,
+    required this.onTap,
+  });
+
+  @override
+  State<_InteractiveCategoryTile> createState() => _InteractiveCategoryTileState();
+}
+
+class _InteractiveCategoryTileState extends State<_InteractiveCategoryTile> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _isPressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFE62020), // Solid Brand Red
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFE62020).withOpacity(0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                widget.title.toUpperCase(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 10,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -387,10 +440,10 @@ class _SubCategoryGridScreenState extends State<SubCategoryGridScreen> {
               : GridView.builder(
                   padding: const EdgeInsets.all(12),
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 220,
-                    childAspectRatio: 0.8,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
+                    maxCrossAxisExtent: 200,
+                    childAspectRatio: 0.58,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
                   ),
                   itemCount: _filteredProducts.length,
                   itemBuilder: (ctx, i) => _buildProductCard(context, _filteredProducts[i], cartProvider),
@@ -412,11 +465,11 @@ class _SubCategoryGridScreenState extends State<SubCategoryGridScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         decoration: BoxDecoration(
           color: isActive ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: isActive ? const Color(0xFFE62020) : Colors.transparent),
           boxShadow: isActive ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)] : null,
         ),
@@ -424,10 +477,10 @@ class _SubCategoryGridScreenState extends State<SubCategoryGridScreen> {
           children: [
             Icon(
               isActive ? LucideIcons.checkCircle2 : LucideIcons.package, 
-              size: 16, 
+              size: 14, 
               color: isActive ? const Color(0xFFE62020) : Colors.grey.shade400
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               title.toUpperCase(),
               textAlign: TextAlign.center,
@@ -493,96 +546,97 @@ class _HoverProductCardState extends State<_HoverProductCard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
-        transform: _isHovered ? (Matrix4.identity()..scale(1.03)) : Matrix4.identity(),
+        transform: _isHovered ? (Matrix4.identity()..scale(1.02)) : Matrix4.identity(),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: _isHovered ? const Color(0xFFE62020).withOpacity(0.2) : Colors.grey.shade100),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(_isHovered ? 0.08 : 0.04), 
-              blurRadius: _isHovered ? 20 : 10, 
-              offset: Offset(0, _isHovered ? 8 : 4),
+              blurRadius: _isHovered ? 15 : 8, 
+              offset: Offset(0, _isHovered ? 6 : 3),
             )
           ],
         ),
         child: GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(product: widget.p))),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top Section: Image and Info
-              Expanded(
+              // Image Section
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Container(
+                  height: 110,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(6.0),
+                      child: widget.imageUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: widget.resolvedUrl, 
+                              fit: BoxFit.contain,
+                              placeholder: (_, __) => const Center(child: SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2))),
+                            )
+                          : const Icon(LucideIcons.package, size: 24, color: Colors.grey),
+                    ),
+                  ),
+                ),
+              ),
+              // Name and Badge Section
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Bigger Image Section
-                    Padding(
-                      padding: const EdgeInsets.all(10.0),
-                      child: Container(
-                        height: 100,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: widget.imageUrl.isNotEmpty
-                                ? CachedNetworkImage(
-                                    imageUrl: Uri.encodeFull(widget.resolvedUrl), 
-                                    fit: BoxFit.contain,
-                                    placeholder: (_, __) => const Center(child: SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2))),
-                                  )
-                                : const Icon(LucideIcons.package, size: 30, color: Colors.grey),
-                          ),
-                        ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          // 10 Mins Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.bolt, color: Colors.orange, size: 10),
-                                SizedBox(width: 2),
-                                Text('10 MINS', style: TextStyle(color: Colors.orange, fontSize: 8, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            widget.name, 
-                            maxLines: 2, 
-                            overflow: TextOverflow.ellipsis, 
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.black87),
-                          ),
+                          Icon(Icons.bolt, color: Colors.orange, size: 10),
+                          SizedBox(width: 2),
+                          Text('10 MINS', style: TextStyle(color: Colors.orange, fontSize: 8, fontWeight: FontWeight.bold)),
                         ],
                       ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.name, 
+                      maxLines: 2, 
+                      overflow: TextOverflow.ellipsis, 
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 10, color: Colors.black87),
                     ),
                   ],
                 ),
               ),
-              // Bottom Section: Price and Button (Pushed to bottom)
+              const Spacer(),
+              // Price and Button Section
               Padding(
-                padding: const EdgeInsets.all(12.0),
+                padding: const EdgeInsets.all(10.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'रू${widget.finalPrice}',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.black),
+                    Expanded(
+                      child: FittedBox(
+                        alignment: Alignment.centerLeft,
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'रू${widget.finalPrice}',
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.black),
+                        ),
+                      ),
                     ),
+                    const SizedBox(width: 4),
                     GestureDetector(
                       onTap: () {
                         widget.cart.addToCart(widget.p['id'], 1);
@@ -594,14 +648,14 @@ class _HoverProductCardState extends State<_HoverProductCard> {
                         ));
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE62020),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text(
                           'ADD',
-                          style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900),
+                          style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
                         ),
                       ),
                     ),

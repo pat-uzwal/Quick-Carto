@@ -18,6 +18,8 @@ class ProductSerializer(serializers.ModelSerializer):
     discount_percentage = serializers.SerializerMethodField()
     discount_amount = serializers.SerializerMethodField()
     final_price = serializers.SerializerMethodField()
+    total_stock = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -27,7 +29,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'category', 'category_name', 'category_slug', 'weight', 'unit',
             'image_url', 'images_json', 'status', 'warehouse',
             'low_stock_threshold', 'is_active',
-            'original_price', 'discount_percentage', 'discount_amount', 'final_price',
+            'original_price', 'discount_percentage', 'discount_amount', 'final_price', 'total_stock',
         )
 
     def _pricing(self, obj):
@@ -47,6 +49,25 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_final_price(self, obj):
         return self._pricing(obj)['final_price']
+
+    def get_total_stock(self, obj):
+        return sum([inv.available_stock for inv in obj.inventory.all()])
+
+    def get_image_url(self, obj):
+        from urllib.parse import quote
+        raw = obj.image_url or ''
+        if not raw:
+            return ''
+        
+        if raw.startswith('data:'):
+            return raw
+       
+        if raw.startswith('http'):
+            return raw
+       
+        parts = raw.split('/')
+        encoded = '/'.join(quote(part, safe='') for part in parts)
+        return encoded
 
 
 class ProductWriteSerializer(serializers.ModelSerializer):

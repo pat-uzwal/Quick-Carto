@@ -4,7 +4,8 @@ import AdminSidebar from '../components/AdminSidebar';
 import { 
     TrendingUp, Users, ShoppingBag, DollarSign, Package, 
     Bell, Search, User, LogOut, Loader2, Activity, 
-    List, Settings, Warehouse, ClipboardList, Filter, ChevronDown
+    List, Settings, Warehouse, ClipboardList, Filter, ChevronDown,
+    Cherry, Candy, CupSoda, Wine, ShoppingCart, Sparkles
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../features/auth/authSlice';
@@ -376,7 +377,7 @@ const UserManagement = () => {
                                 <th className="px-8 py-5 border-b border-gray-100">Full Name</th>
                                 <th className="px-8 py-5 border-b border-gray-100">Email Address</th>
                                 <th className="px-8 py-5 border-b border-gray-100">Contact Number</th>
-                                <th className="px-8 py-5 border-b border-gray-100">Assigned Hub</th>
+                                {activeTab === 'warehouse' && <th className="px-8 py-5 border-b border-gray-100">Assigned Hub</th>}
                                 <th className="px-8 py-5 border-b border-gray-100">Role</th>
                             </tr>
                         </thead>
@@ -403,6 +404,7 @@ const UserManagement = () => {
                                         <td className="px-8 py-5 text-sm font-black text-gray-900 tracking-tighter">
                                             {u.phone_number || 'Not Provided'}
                                         </td>
+                                        {activeTab === 'warehouse' && (
                                         <td className="px-8 py-5 text-xs font-black text-gray-500 tracking-widest uppercase">
                                             {u.role === 'warehouse' ? (
                                                 <select 
@@ -417,6 +419,7 @@ const UserManagement = () => {
                                                 </select>
                                             ) : '-'}
                                         </td>
+                                        )}
                                         <td className="px-8 py-5">
                                             <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                                                 u.role === 'admin' ? 'bg-[#e62020]/10 text-[#e62020] border-[#e62020]/20' :
@@ -907,10 +910,10 @@ const InventoryManagement = () => {
 
     // Category emoji map
     const catEmoji = {
-        'Chips & Snacks': '🍿', 'Chocolates': '🍫', 'Drinks': '🥤',
-        'Snacks and Drinks': '🥨',
-        'Liquors and Smoke': '🥃', 'Grocery and Kitchen': '🛒', 'Beauty and Personal care': '💄',
-        'Uncategorized': '📦'
+        'Chips & Snacks': <Cherry size={20} />, 'Chocolates': <Candy size={20} />, 'Drinks': <CupSoda size={20} />,
+        'Snacks and Drinks': <Cherry size={20} />,
+        'Liquors and Smoke': <Wine size={20} />, 'Grocery and Kitchen': <ShoppingCart size={20} />, 'Beauty and Personal care': <Sparkles size={20} />,
+        'Uncategorized': <Package size={20} />
     };
 
     if (loading) return <div className="p-8 h-full flex items-center justify-center"><Loader2 size={40} className="animate-spin text-[#e62020]" /></div>;
@@ -988,7 +991,7 @@ const InventoryManagement = () => {
                     const inStockCount = items.filter(i => i.stock_status === 'in_stock').length;
                     const outCount = items.filter(i => i.stock_status === 'out_of_stock').length;
                     const lowCount = items.filter(i => i.stock_status === 'low_stock').length;
-                    const emoji = catEmoji[category] || '📦';
+                    const emoji = catEmoji[category] || <Package size={20} />;
 
                     return (
                         <div key={category} className="bg-white rounded-[28px] border border-gray-100 shadow-lg overflow-hidden">
@@ -1618,7 +1621,7 @@ export const AdminDashboard = () => {
                                                         <a key={o.id} href="/admin/orders"
                                                             onClick={() => { setShowDropdown(false); setGlobalSearch(''); }}
                                                             className="flex items-center gap-4 px-5 py-3 hover:bg-red-50/40 transition-colors cursor-pointer">
-                                                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-sm">📦</div>
+                                                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-sm text-gray-500"><Package size={16} /></div>
                                                             <div>
                                                                 <p className="text-sm font-black text-gray-900 leading-none">Order #{String(o.id).slice(0,8)}</p>
                                                                 <p className="text-[10px] text-gray-400 font-bold mt-0.5 uppercase">{o.status} · रू{o.total_price}</p>

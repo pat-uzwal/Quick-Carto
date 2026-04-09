@@ -40,7 +40,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           ? imageUrl
           : '${ApiService.mediaUrl}$imageUrl';
       return CachedNetworkImage(
-        imageUrl: Uri.encodeFull(url),
+        imageUrl: url,
         fit: BoxFit.contain,
         placeholder: (_, __) => const Center(child: CircularProgressIndicator(color: Color(0xFFE62020))),
         errorWidget: (_, __, ___) => Center(child: Text(_getEmoji(name, catName), style: const TextStyle(fontSize: 120))),

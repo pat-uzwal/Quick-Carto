@@ -6,7 +6,20 @@ const loadCart = () => {
         if (serializedState === null) {
             return { items: [], totalAmount: 0, totalItems: 0 };
         }
-        return JSON.parse(serializedState);
+        const state = JSON.parse(serializedState);
+        // Fix stale image paths that contain spaces (pre-encoding fix)
+        if (state.items) {
+            state.items = state.items.map(item => ({
+                ...item,
+                // Re-encode path segments to fix spaces (safe to call on already-encoded URLs)
+                image: item.image
+                    ? item.image.startsWith('http') || item.image.startsWith('data:')
+                        ? item.image
+                        : item.image.split('/').map(s => s.includes('%') ? s : encodeURIComponent(s)).join('/')
+                    : null
+            }));
+        }
+        return state;
     } catch (err) {
         return { items: [], totalAmount: 0, totalItems: 0 };
     }

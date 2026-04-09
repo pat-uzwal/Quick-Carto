@@ -26,9 +26,11 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  Future<void> fetchCart() async {
-    _isLoading = true;
-    notifyListeners();
+  Future<void> fetchCart({bool showLoading = true}) async {
+    if (showLoading) {
+      _isLoading = true;
+      notifyListeners();
+    }
     try {
       final res = await ApiService.get('/cart/');
       if (res.statusCode == 200) {
@@ -39,7 +41,9 @@ class CartProvider with ChangeNotifier {
     } catch (e) {
       debugPrint("Cart Fetch Error: $e");
     }
-    _isLoading = false;
+    if (showLoading) {
+      _isLoading = false;
+    }
     notifyListeners();
   }
 
@@ -49,7 +53,7 @@ class CartProvider with ChangeNotifier {
         'product': productId,
         'quantity': quantity
       });
-      await fetchCart();
+      await fetchCart(showLoading: false);
     } catch (e) {
       debugPrint("Add to Cart Error: $e");
     }
@@ -65,7 +69,7 @@ class CartProvider with ChangeNotifier {
         'product': productId,
         'quantity': quantity
       });
-      await fetchCart();
+      await fetchCart(showLoading: false);
     } catch (e) {
       debugPrint("Update Quantity Error: $e");
     }
@@ -74,7 +78,7 @@ class CartProvider with ChangeNotifier {
   Future<void> removeItem(int productId) async {
     try {
       await ApiService.delete('/cart/items/$productId/');
-      await fetchCart();
+      await fetchCart(showLoading: false);
     } catch (e) {
       debugPrint("Remove Item Error: $e");
     }

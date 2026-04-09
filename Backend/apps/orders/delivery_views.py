@@ -12,6 +12,7 @@ from django.db.models import Sum
 from apps.users.permissions import IsDeliveryMan
 from apps.orders.models import Order, DeliveryAssignment, DeliveryNotification, ChatMessage
 from apps.orders.serializers import OrderSerializer, DeliveryNotificationSerializer, ChatMessageSerializer
+from apps.users.serializers import UserSerializer
 from apps.warehouses.models import Warehouse
 from django.db.models import Q
 
@@ -36,12 +37,16 @@ def notify_warehouse_riders(order):
 
     warehouse_district = order.warehouse.district
 
-    # Find riders who are: Online AND (Assigned to this warehouse OR in the same district)
+    # Find riders who are: Online AND assigned to the same warehouse district
     riders = User.objects.filter(
         role='delivery', 
         is_online=True,
         assigned_warehouse__district=warehouse_district
     )
+
+    # Fallback: if no riders found in this district, try ALL online delivery riders
+    if not riders.exists():
+        riders = User.objects.filter(role='delivery', is_online=True)
 
     notifications = []
     for rider in riders:
@@ -53,7 +58,7 @@ def notify_warehouse_riders(order):
     if notifications:
         DeliveryNotification.objects.bulk_create(notifications)
 
-    # Return TOTAL number of online riders available for this district
+    # Return TOTAL number of online riders available
     return riders.count()
 
 

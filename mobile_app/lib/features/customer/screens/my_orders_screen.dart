@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/api_service.dart';
@@ -14,28 +16,55 @@ class MyOrdersScreen extends StatefulWidget {
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
   List<dynamic> _orders = [];
   bool _isLoading = true;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _fetchOrders();
+    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      // Only poll if there are ongoing orders
+      if (_orders.any((o) => o['status'] != 'delivered' && o['status'] != 'cancelled')) {
+        _fetchOrders(isPolling: true);
+      }
+    });
   }
 
-  Future<void> _fetchOrders() async {
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchOrders({bool isPolling = false}) async {
     try {
       final res = await ApiService.get('/orders/');
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (mounted) {
           setState(() {
-            _orders = data['results'] ?? data;
-            _isLoading = false;
+             _orders = data['results'] ?? data;
+             _isLoading = false;
           });
         }
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && !isPolling) setState(() => _isLoading = false);
     }
+  }
+
+  Widget _buildItemImage(dynamic item) {
+    var url = item['product_image']?.toString() ?? '';
+    if (url.isEmpty && item['product'] is Map) url = item['product']['image_url']?.toString() ?? '';
+    
+    if (url.isEmpty) return const Center(child: Text('📦', style: TextStyle(fontSize: 18)));
+    
+    final resolvedUrl = url.startsWith('http') ? url : '${ApiService.mediaUrl}$url';
+    return CachedNetworkImage(
+      imageUrl: resolvedUrl,
+      fit: BoxFit.contain,
+      errorWidget: (_, __, ___) => const Center(child: Text('📦', style: TextStyle(fontSize: 18))),
+    );
   }
 
   Color _getStatusColor(String status) {
@@ -243,6 +272,17 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             ),
           ),
 
+          // ─── Status Timeline ─────────────────────────────
+          if (status != 'cancelled')
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50.withOpacity(0.5),
+                border: Border(top: BorderSide(color: Colors.grey.shade100), bottom: BorderSide(color: Colors.grey.shade100)),
+              ),
+              child: _buildStatusStepper(status),
+            ),
+
           // ─── Items list ───────────────────────────────
           Padding(
             padding: const EdgeInsets.all(16),
@@ -250,28 +290,29 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ...items.take(2).map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 36, height: 36,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(8),
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36, height: 36,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: _buildItemImage(item),
                         ),
-                        child: const Center(child: Text('📦', style: TextStyle(fontSize: 18))),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(item['product_name'] ?? '',
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ),
-                      Text('× ${item['quantity']}',
-                          style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                )),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(item['product_name'] ?? '',
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                        Text('× ${item['quantity']}',
+                            style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  )),
                 if (items.length > 2)
                   Text('+${items.length - 2} more items',
                       style: const TextStyle(color: Color(0xFFE62020), fontSize: 11, fontWeight: FontWeight.bold)),
@@ -351,6 +392,58 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatusStepper(String currentStatus) {
+    const statuses = [
+      {'key': 'pending', 'label': 'Ordered', 'icon': LucideIcons.shoppingBag},
+      {'key': 'packed', 'label': 'Packed', 'icon': LucideIcons.package},
+      {'key': 'accepted_by_rider', 'label': 'Assigned', 'icon': LucideIcons.user},
+      {'key': 'reached_warehouse', 'label': 'At Hub', 'icon': LucideIcons.store},
+      {'key': 'picked_up', 'label': 'Picked', 'icon': LucideIcons.packageCheck},
+      {'key': 'out_for_delivery', 'label': 'Delivering', 'icon': LucideIcons.truck},
+      {'key': 'delivered', 'label': 'Done', 'icon': LucideIcons.checkCircle},
+    ];
+
+    int currentIndex = statuses.indexWhere((s) => s['key'] == currentStatus);
+    if (currentIndex == -1) currentIndex = 0; // Default to first
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: List.generate(statuses.length, (index) {
+          final isCompleted = index < currentIndex;
+          final isCurrent = index == currentIndex;
+          final color = isCompleted || isCurrent ? const Color(0xFFE62020) : Colors.grey.shade300;
+          
+          return Row(
+            children: [
+              Column(
+                children: [
+                  Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      color: isCurrent || isCompleted ? const Color(0xFFE62020) : Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: color, width: 2),
+                    ),
+                    child: Icon(statuses[index]['icon'] as IconData, size: 14, color: isCurrent || isCompleted ? Colors.white : color),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(statuses[index]['label'] as String, style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: color, letterSpacing: 0.2)),
+                ],
+              ),
+              if (index < statuses.length - 1)
+                Container(
+                  width: 24, height: 2,
+                  margin: const EdgeInsets.only(bottom: 18),
+                  color: index < currentIndex ? const Color(0xFFE62020) : Colors.grey.shade200,
+                ),
+            ],
+          );
+        }),
       ),
     );
   }

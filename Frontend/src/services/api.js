@@ -11,7 +11,15 @@ const api = axios.create({
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('accessToken');
-        if (token) {
+        
+        // Skip auth for public endpoints to prevent 401 errors on expired tokens
+        const isPublicEndpoint = config.url && (
+            config.url.startsWith('products') || 
+            config.url.startsWith('categories') ||
+            config.url.startsWith('offers')
+        );
+
+        if (token && !isPublicEndpoint) {
             config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
@@ -43,10 +51,11 @@ api.interceptors.response.use(
                     refresh: refreshToken,
                 });
 
-                if (res.data?.accessToken) {
-                    localStorage.setItem('accessToken', res.data.accessToken);
-                    // Retry the original request with new token
-                    api.defaults.headers.common['Authorization'] = `Bearer ${res.data.accessToken}`;
+                if (res.data?.access) {
+                    localStorage.setItem('accessToken', res.data.access);
+                    // Update original request header and retry
+                    originalRequest.headers.Authorization = `Bearer ${res.data.access}`;
+                    api.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
                     return api(originalRequest);
                 }
             } catch (refreshError) {
