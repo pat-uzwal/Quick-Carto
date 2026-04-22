@@ -21,6 +21,7 @@ const ProductModal = ({ isOpen, onClose, product, categories, onSave }) => {
         };
         fetchWarehouses();
     }, [accessToken]);
+    const [selectedFileNames, setSelectedFileNames] = useState([]);
     const [formData, setFormData] = useState({
         product_name: '',
         sku: '',
@@ -39,6 +40,7 @@ const ProductModal = ({ isOpen, onClose, product, categories, onSave }) => {
     });
 
     useEffect(() => {
+        setSelectedFileNames([]);
         if (product) {
             setFormData({
                 product_name: product.name || '',
@@ -245,23 +247,47 @@ const ProductModal = ({ isOpen, onClose, product, categories, onSave }) => {
                             </div>
                             <div className="space-y-4">
                                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Asset Registry (Upload Images)</label>
-                                <input type="file" multiple accept="image/*" onChange={(e) => {
-                                    const files = Array.from(e.target.files);
-                                    if(files.length === 0) return;
-                                    Promise.all(files.map(file => {
-                                        return new Promise((resolve, reject) => {
-                                            const reader = new FileReader();
-                                            reader.readAsDataURL(file);
-                                            reader.onload = () => resolve(reader.result);
-                                            reader.onerror = error => reject(error);
-                                        });
-                                    })).then(base64Images => {
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            images: base64Images
-                                        }));
-                                    });
-                                }} className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-3 text-xs font-bold text-blue-500 focus:outline-none focus:border-[#e62020] transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-[#e62020] hover:file:bg-red-100" />
+                                <div className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-3 flex items-center gap-4 transition-all focus-within:border-[#e62020]">
+                                    <label
+                                        htmlFor="product-image-upload"
+                                        className="shrink-0 py-2 px-4 rounded-full bg-red-50 text-[#e62020] text-sm font-semibold cursor-pointer hover:bg-red-100 transition-all"
+                                    >
+                                        Choose files
+                                    </label>
+                                    <span className="text-xs font-bold truncate"
+                                        style={{ color: (selectedFileNames.length > 0 || formData.images.length > 0) ? '#111' : '#9ca3af' }}
+                                    >
+                                        {selectedFileNames.length > 0
+                                            ? selectedFileNames.length === 1
+                                                ? selectedFileNames[0]
+                                                : `${selectedFileNames.length} files selected`
+                                            : formData.images.length > 0
+                                                ? `${formData.images.length} image(s) available`
+                                                : 'No file chosen'}
+                                    </span>
+                                    <input
+                                        id="product-image-upload"
+                                        type="file"
+                                        multiple
+                                        accept="image/*"
+                                        className="sr-only"
+                                        onChange={(e) => {
+                                            const files = Array.from(e.target.files);
+                                            if (files.length === 0) return;
+                                            setSelectedFileNames(files.map(f => f.name));
+                                            Promise.all(files.map(file =>
+                                                new Promise((resolve, reject) => {
+                                                    const reader = new FileReader();
+                                                    reader.readAsDataURL(file);
+                                                    reader.onload = () => resolve(reader.result);
+                                                    reader.onerror = error => reject(error);
+                                                })
+                                            )).then(base64Images => {
+                                                setFormData(prev => ({ ...prev, images: base64Images }));
+                                            });
+                                        }}
+                                    />
+                                </div>
                             </div>
                         </div>
 

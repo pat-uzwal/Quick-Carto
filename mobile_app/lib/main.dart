@@ -8,6 +8,7 @@ import 'features/customer/providers/cart_provider.dart';
 import 'features/auth/screens/landing_screen.dart';
 import 'features/customer/screens/home_screen.dart';
 import 'features/delivery/screens/rider_dashboard.dart';
+import 'core/widgets/app_logo.dart';
 
 class GlobalScrollBehavior extends MaterialScrollBehavior {
   @override
@@ -48,44 +49,18 @@ class QuickcartoApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       home: Consumer<AuthProvider>(
         builder: (context, auth, _) {
-          // If loading, show splash/progress
+          // If we are still initializing/loading authenticaton, show splash
           if (auth.isLoading) {
              return Scaffold(
                backgroundColor: Colors.white,
                body: Center(
-                 child: Column(
-                   mainAxisAlignment: MainAxisAlignment.center,
-                   children: [
-                     Container(
-                       height: 180, width: 180,
-                       decoration: BoxDecoration(
-                         color: const Color(0xFFF3F4F6), // Match light gray aesthetic
-                         borderRadius: BorderRadius.circular(28),
-                         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20)],
-                       ),
-                       child: ClipRRect(
-                         borderRadius: BorderRadius.circular(28),
-                         child: Image.asset('assets/logo.png', fit: BoxFit.cover),
-                       ),
-                     ),
-                     const SizedBox(height: 24),
-                     const SizedBox(width: 40, child: LinearProgressIndicator(color: Color(0xFFE62020), backgroundColor: Color(0xFFF3F4F6))),
-                   ],
-                 ),
+                 child: const AppLogo(scale: 0.8),
                ),
              );
           }
           
-          // If authenticated, route based on role
-          if (auth.isAuthenticated) {
-            final role = auth.user?['role']?.toString().toLowerCase();
-            if (role == 'delivery') {
-              return const RiderDashboard();
-            }
-            return const HomeScreen(); // Customer Dashboard
-          }
-          
-          // Otherwise show Landing Screen
+          // Always open by landing page first as requested
+          // The Landing Page itself will handle the transition to Login/Home
           return const LandingScreen();
         },
       ),

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, MapPin, ShoppingBag, Settings, LogOut, CheckCircle2 } from 'lucide-react';
+import { User, MapPin, ShoppingBag, Settings, LogOut, CheckCircle2, Shield } from 'lucide-react';
 import { logout } from '../features/auth/authSlice';
 import api from '../services/api';
 
@@ -61,6 +61,7 @@ const Profile = () => {
         { id: 'orders', label: 'My Orders', icon: <ShoppingBag size={20} />, external: true, link: '/orders' },
         { id: 'addresses', label: 'Delivery Addresses', icon: <MapPin size={20} /> },
         { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
+        { id: 'security', label: 'Security', icon: <Shield size={20} /> },
     ];
 
     return (
@@ -264,6 +265,54 @@ const Profile = () => {
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                            )}
+
+                            {/* Security Tab */}
+                            {activeTab === 'security' && (
+                                <div className="animate-in fade-in duration-300">
+                                    <h2 className="text-2xl font-black mb-6">Security Settings</h2>
+                                    <form onSubmit={async (e) => {
+                                        e.preventDefault();
+                                        setLoading(true);
+                                        const old_password = e.target.old_password.value;
+                                        const new_password = e.target.new_password.value;
+                                        const confirm_password = e.target.confirm_password.value;
+
+                                        if (new_password !== confirm_password) {
+                                            alert("New passwords do not match!");
+                                            setLoading(false);
+                                            return;
+                                        }
+
+                                        try {
+                                            await api.post('/auth/change-password/', { old_password, new_password });
+                                            alert("Password updated successfully!");
+                                            e.target.reset();
+                                        } catch (err) {
+                                            alert(err.response?.data?.detail || "Failed to update password");
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}>
+                                        <div className="space-y-6 max-w-md">
+                                            <div>
+                                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Current Password</label>
+                                                <input name="old_password" type="password" required className="w-full p-4 bg-gray-50 rounded-[16px] font-bold border border-gray-100 outline-none focus:border-[#e62020] transition-all" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">New Password</label>
+                                                <input name="new_password" type="password" required className="w-full p-4 bg-gray-50 rounded-[16px] font-bold border border-gray-100 outline-none focus:border-[#e62020] transition-all" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Confirm New Password</label>
+                                                <input name="confirm_password" type="password" required className="w-full p-4 bg-gray-50 rounded-[16px] font-bold border border-gray-100 outline-none focus:border-[#e62020] transition-all" />
+                                            </div>
+                                            <button disabled={loading} className="w-full bg-black text-white py-4 rounded-[16px] font-black uppercase text-sm tracking-widest shadow-xl hover:bg-gray-800 transition-all">
+                                                {loading ? 'Processing...' : 'Update Password'}
+                                            </button>
+                                        </div>
+                                    </form>
                                 </div>
                             )}
                         </div>

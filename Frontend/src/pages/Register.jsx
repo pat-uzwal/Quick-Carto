@@ -73,9 +73,7 @@ const Register = () => {
             <div className="max-w-md w-full animate-in fade-in zoom-in duration-500">
                 <div className="bg-white shadow-xl shadow-gray-200/50 rounded-3xl p-8 border border-gray-100">
                     <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-[#e62020]">
-                            <UserCheck size={32} />
-                        </div>
+                        <div className="text-3xl font-[1000] text-[#e62020] tracking-tighter uppercase italic leading-none mb-8">QuickCarto</div>
                         <h2 className="text-3xl font-black text-gray-900 tracking-tight">Join QuickCarto</h2>
                         <p className="text-gray-500 mt-2 font-medium">Create your professional account today</p>
                     </div>

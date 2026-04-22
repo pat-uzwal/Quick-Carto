@@ -34,17 +34,17 @@ class _CategoryScreenState extends State<CategoryScreen> {
       'Tea & Coffee': ['tea', 'coffee'],
     },
     'Snacks and Drinks': {
-      'chips, cheeseballs, rings and sticks': ['chip', 'cheese', 'ring', 'stick', 'kurkure', 'lays', 'puff', 'pringle'],
-      'chocolate and sweets': ['choco', 'sweet', 'candy', 'bar', 'kitkat', 'dairy', 'munch', 'snicker', 'perk'],
-      'soft drinks, coke and juice': ['coke', 'juice', 'drink', 'pepsi', 'fanta', 'sprite', 'water', 'frooti', 'real', 'beverage', 'soda', 'limca', 'maaza', 'energy drink', 'redbull', 'sting', 'tea', 'coffee', 'milkshake', 'horlicks', 'bournvita', 'coca', 'cola'],
+      'chocolate and sweets': ['chocolate', 'choco', 'sweet', 'candy', 'bar', 'kitkat', 'dairy milk', 'silk', 'munch', 'snicker', 'perk', 'orbit', 'mentos', 'center', 'gum', 'biscuit', 'cookie', 'oreo', 'raffaello', 'haldiram', 'haldrim', 'gulab', 'rasbhari', 'white rabbit', 'sweets', 'ladoo', 'peda'],
+      'chips, cheeseballs, rings and sticks': ['chip', 'cheese', 'ring', 'stick', 'kurkure', 'lays', 'puff', 'pringle', 'bingo', 'namkeen', 'dalmot', 'bhujia', 'snack', 'kurmura', 'harilo', 'hario', 'chicken'],
+      'soft drinks, coke and juice': ['soft drink', 'coca cola', 'pepsi', 'fanta', 'sprite', 'water', 'frooti', 'fruit power', 'beverage', 'soda', 'limca', 'maaza', 'redbull', 'sting', 'bournvita', 'mountain dew', 'mirinda', 'minute maid', 'milkshake', 'cold drink'],
     },
     'Liquors and Smoke': {
       'hard drinks and liquors': ['vodka', 'gin', 'rum', 'whisky', 'beer', 'liquor', '8848', 'durbar', 'blended', 'reserve', 'old durbar'],
       'smoke': ['cigarette', 'smoke', 'esse', 'lighter'],
     },
     'Beauty and Personal care': {
+      'hair care and essential': ['hair', 'shampoo', 'conditioner', 'vatika', 'sunsilk', 'pantene', 'clinic plus', 'dove shampoo', 'dabur', 'amla', 'head & shoulders', 'oil'],
       'Baby care essential and care': ['baby', 'diaper', 'wipe', 'johnson', 'cerelac', 'himalaya baby', 'pampers', 'mamy poko'],
-      'hair care and essential': ['hair', 'shampoo', 'conditioner', 'shampoo', 'vatika', 'sunsilk', 'pantene', 'clinic plus', 'dove shampoo', 'dabur', 'amla', 'head', 'shoulders', 'oil'],
       'skin care and essential': ['skin', 'face', 'cream', 'lotion', 'aloe', 'pond', 'fair', 'nivea', 'moisturizer', 'soap', 'dettol', 'lux', 'lifebuoy', 'santoor', 'pears', 'dove', 'wash'],
       'deoderants and perfume': ['deo', 'perfume', 'spray', 'fogg', 'axe', 'park', 'wildstone', 'cologne', 'fragrance', 'body spray', 'england', 'denver', 'fog', 'titan', 'skinn', 'yardley', 'engage', 'spinz', 'nivea deo', 'secret temptation', 'bellavita', 'beardo', 'roll'],
     },
@@ -104,16 +104,17 @@ class _CategoryScreenState extends State<CategoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: Color(0xFFE62020)))
-        : CustomScrollView(
-            physics: const ClampingScrollPhysics(),
-            cacheExtent: 1000,
-            slivers: [
-              // Unified Header that scrolls with content
-              SliverToBoxAdapter(
-                child: Container(
-                  padding: const EdgeInsets.only(top: 60, bottom: 20, left: 24, right: 24),
+      body: SafeArea(
+        child: _isLoading 
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFE62020)))
+          : CustomScrollView(
+              physics: const ClampingScrollPhysics(),
+              cacheExtent: 1000,
+              slivers: [
+                // Unified Header that scrolls with content
+                SliverToBoxAdapter(
+                  child: Container(
+                    padding: const EdgeInsets.only(top: 20, bottom: 20, left: 24, right: 24),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
@@ -138,6 +139,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
               const SliverToBoxAdapter(child: SizedBox(height: 100)),
             ],
           ),
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 1, // Category is active
         selectedItemColor: const Color(0xFFE62020),
@@ -173,16 +175,19 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     // Grouping logic: Strict and category-aware
     final Map<String, List<dynamic>> groups = {};
-    final subGroups = _categoryGroups[catName] ?? {};
+    // Normalize mapping for case-insensitive lookup
+    final normalizedSubGroups = _categoryGroups.entries.firstWhere(
+      (entry) => entry.key.toLowerCase() == catName.toLowerCase(),
+      orElse: () => MapEntry(catName, {}),
+    ).value;
 
     for (final p in catProducts) {
       final pName = p['name'].toString().toLowerCase();
-      // Using regex to ensure we match whole words only (prevents 'tea' matching 'chocolate')
-      for (final entry in subGroups.entries) {
+      
+      for (final entry in normalizedSubGroups.entries) {
         bool matches = false;
         for (final k in entry.value) {
-          final regex = RegExp('\\b${k.toLowerCase()}\\b');
-          if (regex.hasMatch(pName)) {
+          if (pName.contains(k.toLowerCase())) {
             matches = true;
             break;
           }
@@ -190,7 +195,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
         
         if (matches) {
           groups.putIfAbsent(entry.key, () => []).add(p);
-          break; // Stop after first match so it only appears in ONE sub-group
+          break; // Stop after first match (Priority: Baby > Hair > Skin > Deo)
         }
       }
     }
@@ -241,7 +246,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
           parentTitle: parentName,
           initialTitle: initialGroup,
           allProducts: allProducts,
-          subGroups: _categoryGroups[parentName] ?? {},
+          subGroups: _categoryGroups.entries.firstWhere(
+            (entry) => entry.key.toLowerCase() == parentName.toLowerCase(),
+            orElse: () => MapEntry(parentName, {}),
+          ).value,
         ),
       ),
     );
@@ -371,7 +379,7 @@ class _SubCategoryGridScreenState extends State<SubCategoryGridScreen> {
       final keywords = widget.subGroups[_selectedGroup] ?? [];
       _filteredProducts = widget.allProducts.where((p) {
         final pName = p['name'].toString().toLowerCase();
-        return keywords.any((k) => RegExp('\\b$k\\b').hasMatch(pName));
+        return keywords.any((k) => pName.contains(k.toLowerCase()));
       }).toList();
     }
   }
@@ -498,9 +506,15 @@ class _SubCategoryGridScreenState extends State<SubCategoryGridScreen> {
   }
 
   Widget _buildProductCard(BuildContext context, dynamic p, CartProvider cart) {
-    final name = p['name'] ?? '';
+    final name = (p['name'] ?? '').toString();
     final finalPrice = p['final_price'] ?? p['price'] ?? '0';
-    final imageUrl = p['image_url']?.toString() ?? '';
+    String imageUrl = p['image_url']?.toString() ?? '';
+    
+    // Fallback for specific missing images
+    if (name.toLowerCase().contains('khukhuri rum') || name.toLowerCase().contains('khukri rum')) {
+      imageUrl = 'images/New-Pack-Khukri-Rum-in-Nepal.jpg';
+    }
+    
     final resolvedUrl = imageUrl.startsWith('http') ? imageUrl : '${ApiService.mediaUrl}$imageUrl';
 
     return _HoverProductCard(

@@ -5,6 +5,7 @@ import {
     TrendingUp, Users, ShoppingBag, DollarSign, Package, 
     Bell, Search, User, LogOut, Loader2, Activity, 
     List, Settings, Warehouse, ClipboardList, Filter, ChevronDown,
+    Trash2,
     Cherry, Candy, CupSoda, Wine, ShoppingCart, Sparkles
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -34,6 +35,39 @@ const StatCard = ({ title, value, icon, trend, trendValue, colorClass }) => (
         </div>
     </div>
 );
+
+// Reusable Pagination Component
+const Pagination = ({ count, currentPage, onPageChange, pageSize = 20 }) => {
+    const totalPages = Math.ceil(count / pageSize);
+    if (totalPages <= 1) return null;
+
+    return (
+        <div className="flex justify-between items-center px-8 py-6 border-t border-gray-50 bg-gray-50/30">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                Showing {Math.min(count, (currentPage - 1) * pageSize + 1)}-{Math.min(count, currentPage * pageSize)} of {count}
+            </p>
+            <div className="flex gap-2">
+                <button 
+                    disabled={currentPage === 1}
+                    onClick={() => onPageChange(currentPage - 1)}
+                    className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:border-[#e62020] hover:text-[#e62020] disabled:opacity-30 disabled:hover:border-gray-200 disabled:hover:text-gray-500 transition-all"
+                >
+                    Previous
+                </button>
+                <div className="flex items-center gap-2 px-4 text-[10px] font-black text-gray-900 border-x border-gray-100">
+                    PAGE <span className="text-[#e62020]">{currentPage}</span> / {totalPages}
+                </div>
+                <button 
+                    disabled={currentPage === totalPages}
+                    onClick={() => onPageChange(currentPage + 1)}
+                    className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:border-[#e62020] hover:text-[#e62020] disabled:opacity-30 disabled:hover:border-gray-200 disabled:hover:text-gray-500 transition-all"
+                >
+                    Next
+                </button>
+            </div>
+        </div>
+    );
+};
 
 // Dashboard Overview Sub-page
 const DashboardHome = () => {
@@ -167,18 +201,16 @@ const DashboardHome = () => {
                     </div>
 
                     <div className="relative z-10 space-y-4">
-                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-2xl group hover:border-[#e62020] border border-transparent transition-all">
-                            <span className="font-black text-xs text-gray-400 group-hover:text-gray-900 uppercase tracking-widest">Kathmandu Hub</span>
-                            <span className="font-black text-lg text-gray-900 tracking-tighter">रू {Math.round(analytics.total_revenue * 0.55).toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-2xl group hover:border-[#e62020] border border-transparent transition-all">
-                            <span className="font-black text-xs text-gray-400 group-hover:text-gray-900 uppercase tracking-widest">Lalitpur Node</span>
-                            <span className="font-black text-lg text-gray-900 tracking-tighter">रू {Math.round(analytics.total_revenue * 0.30).toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-2xl group hover:border-[#e62020] border border-transparent transition-all">
-                            <span className="font-black text-xs text-gray-400 group-hover:text-gray-900 uppercase tracking-widest">Bhaktapur Center</span>
-                            <span className="font-black text-lg text-gray-900 tracking-tighter">रू {Math.round(analytics.total_revenue * 0.15).toLocaleString()}</span>
-                        </div>
+                        {Object.entries(analytics.warehouse_revenue || {}).length === 0 ? (
+                             <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center py-4">No regional data available</div>
+                        ) : (
+                            Object.entries(analytics.warehouse_revenue).map(([name, rev]) => (
+                                <div key={name} className="flex justify-between items-center p-3 bg-gray-50 rounded-2xl group hover:border-[#e62020] border border-transparent transition-all">
+                                    <span className="font-black text-xs text-gray-400 group-hover:text-gray-900 uppercase tracking-widest">{name}</span>
+                                    <span className="font-black text-lg text-gray-900 tracking-tighter">रू {rev.toLocaleString()}</span>
+                                </div>
+                            ))
+                        )}
                     </div>
                     
                     <div className="relative z-10 mt-6 pt-6 border-t border-gray-100 flex justify-between items-center text-xs font-black uppercase tracking-widest text-[#e62020]">
@@ -198,32 +230,37 @@ const UserManagement = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+
+    const fetchData = async (page = 1) => {
+        if (!accessToken) return;
+        setLoading(true);
+        try {
+            // Fetch Users with pagination
+            const res = await fetch(`http://localhost:8000/api/admin/users/?page=${page}`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            const data = await res.json();
+            setUsers(data.results || []);
+            setTotalItems(data.count || 0);
+            setCurrentPage(page);
+
+            // Fetch Warehouses
+            const wRes = await fetch('http://localhost:8000/api/admin/warehouses/', {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            const wData = await wRes.json();
+            setWarehouses(Array.isArray(wData) ? wData : (wData.results || []));
+        } catch (err) {
+            console.error("Failed to fetch data", err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchData = async () => {
-            if (!accessToken) return;
-            try {
-                // Fetch Users
-                const res = await fetch('http://localhost:8000/api/admin/users/', {
-                    headers: { 'Authorization': `Bearer ${accessToken}` }
-                });
-                const data = await res.json();
-                setUsers(Array.isArray(data) ? data : (data.results || []));
-
-                // Fetch Warehouses
-                const wRes = await fetch('http://localhost:8000/api/admin/warehouses/', {
-                    headers: { 'Authorization': `Bearer ${accessToken}` }
-                });
-                const wData = await wRes.json();
-                setWarehouses(Array.isArray(wData) ? wData : (wData.results || []));
-            } catch (err) {
-                console.error("Failed to fetch data", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
+        fetchData(1);
     }, [accessToken]);
 
     const handleAssignWarehouse = async (userId, warehouseId) => {
@@ -258,7 +295,8 @@ const UserManagement = () => {
             if (res.ok) {
                 setUsers(prev => prev.filter(u => u.id !== id));
             } else {
-                alert("Failed to delete user.");
+                const errorData = await res.json();
+                alert(`Failed to delete user: ${errorData.detail || errorData.message || 'Unknown error'}`);
             }
         } catch (err) {
             console.error(err);
@@ -379,12 +417,13 @@ const UserManagement = () => {
                                 <th className="px-8 py-5 border-b border-gray-100">Contact Number</th>
                                 {activeTab === 'warehouse' && <th className="px-8 py-5 border-b border-gray-100">Assigned Hub</th>}
                                 <th className="px-8 py-5 border-b border-gray-100">Role</th>
+                                <th className="px-8 py-5 border-b border-gray-100 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             {filteredUsers.length === 0 ? (
                                 <tr>
-                                    <td colSpan="5" className="px-8 py-12 text-center text-gray-400 font-bold uppercase tracking-widest text-sm">
+                                    <td colSpan={activeTab === 'warehouse' ? 7 : 6} className="px-8 py-12 text-center text-gray-400 font-bold uppercase tracking-widest text-sm">
                                         No users found in this category.
                                     </td>
                                 </tr>
@@ -430,12 +469,26 @@ const UserManagement = () => {
                                                 {u.role === 'user' ? 'Customer' : u.role}
                                             </span>
                                         </td>
+                                        <td className="px-8 py-5 text-right">
+                                            <button 
+                                                onClick={() => handleDeleteUser(u.id)}
+                                                className="p-2 text-gray-400 hover:text-[#e62020] hover:bg-red-50 rounded-lg transition-all"
+                                                title="Delete User Account"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))
                             )}
                         </tbody>
                     </table>
                 </div>
+                <Pagination 
+                    count={totalItems} 
+                    currentPage={currentPage} 
+                    onPageChange={fetchData} 
+                />
             </div>
 
             {showManagerModal && (
@@ -529,6 +582,24 @@ const CategoryManagement = () => {
         }
     };
 
+    const handleDeleteCategory = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this category? This will also affect products in this category.")) return;
+        try {
+            const res = await fetch(`http://localhost:8000/api/admin/categories/${id}/`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            if (res.ok) {
+                fetchCategories();
+            } else {
+                const errorData = await res.json();
+                alert(`Failed to delete category: ${errorData.detail || errorData.message || 'Unknown error'}`);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     const openAddModal = () => {
         setSelectedCategory(null);
         setIsModalOpen(true);
@@ -611,12 +682,21 @@ const CategoryManagement = () => {
                                             <span className="px-3 py-1 bg-green-50 text-green-600 border border-green-200 rounded-xl text-[10px] font-black uppercase tracking-widest">Live</span>
                                         </td>
                                         <td className="px-8 py-5 text-right">
-                                            <button 
-                                                onClick={() => openEditModal(cat)}
-                                                className="text-[10px] font-black text-gray-400 hover:text-[#e62020] uppercase border border-gray-200 hover:border-[#e62020] px-3 py-1.5 rounded-lg transition-all"
-                                            >
-                                                Configure
-                                            </button>
+                                            <div className="flex justify-end gap-2">
+                                                <button 
+                                                    onClick={() => openEditModal(cat)}
+                                                    className="text-[10px] font-black text-gray-400 hover:text-[#e62020] uppercase border border-gray-200 hover:border-[#e62020] px-3 py-1.5 rounded-lg transition-all"
+                                                >
+                                                    Configure
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteCategory(cat.id)}
+                                                    className="p-1.5 text-gray-400 hover:text-[#e62020] hover:bg-red-50 border border-gray-100 hover:border-red-100 rounded-lg transition-all"
+                                                    title="Delete Category"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -636,6 +716,192 @@ const CategoryManagement = () => {
     );
 };
 
+// Offers & Coupons Management Module
+const OffersManagement = () => {
+    const { accessToken } = useSelector(state => state.auth);
+    const [activeTab, setActiveTab] = useState('coupons'); // 'coupons' or 'offers'
+    const [coupons, setCoupons] = useState([]);
+    const [offers, setOffers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const fetchData = async () => {
+        if (!accessToken) return;
+        setLoading(true);
+        try {
+            const [coupRes, offerRes] = await Promise.all([
+                fetch('http://localhost:8000/api/admin/coupons/', {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                }),
+                fetch('http://localhost:8000/api/admin/offers/', {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                })
+            ]);
+            
+            const coupData = await coupRes.json();
+            const offerData = await offerRes.json();
+            
+            setCoupons(Array.isArray(coupData) ? coupData : (coupData.results || []));
+            setOffers(Array.isArray(offerData) ? offerData : (offerData.results || []));
+        } catch (err) {
+            console.error("Failed to fetch offers data", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, [accessToken]);
+
+    if (loading) return <div className="p-8 h-full flex items-center justify-center"><Loader2 size={40} className="animate-spin text-[#e62020]" /></div>;
+
+    const filteredItems = activeTab === 'coupons' 
+        ? coupons.filter(c => c.code.toLowerCase().includes(searchTerm.toLowerCase()))
+        : offers.filter(o => o.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    return (
+        <div className="p-10 space-y-8 animate-in fade-in duration-500 max-w-[1600px] mx-auto">
+            <div className="flex justify-between items-end">
+                <div>
+                    <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase leading-none">Campaign Control</h1>
+                    <p className="text-gray-500 mt-2 font-bold uppercase tracking-widest text-[11px] flex items-center gap-2">
+                        <Sparkles size={14} className="text-[#e62020] animate-pulse" /> Drive Growth & Retention
+                    </p>
+                </div>
+            </div>
+
+            {/* Campaign Navigation Tabs */}
+            <div className="flex gap-2 p-1.5 bg-gray-100/50 rounded-[24px] w-fit">
+                <button
+                    onClick={() => setActiveTab('coupons')}
+                    className={`px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${
+                        activeTab === 'coupons' ? 'bg-white text-[#e62020] shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                >
+                    Promo Coupons
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] ${
+                        activeTab === 'coupons' ? 'bg-red-50 text-[#e62020]' : 'bg-gray-200 text-gray-500'
+                    }`}>
+                        {coupons.length}
+                    </span>
+                </button>
+                <button
+                    onClick={() => setActiveTab('offers')}
+                    className={`px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${
+                        activeTab === 'offers' ? 'bg-white text-[#e62020] shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                >
+                    Automatic Offers
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] ${
+                        activeTab === 'offers' ? 'bg-red-50 text-[#e62020]' : 'bg-gray-200 text-gray-500'
+                    }`}>
+                        {offers.length}
+                    </span>
+                </button>
+            </div>
+
+            <div className="bg-white rounded-[32px] border border-gray-100 shadow-xl shadow-gray-200/40 overflow-hidden">
+                <div className="p-8 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                    <h3 className="font-black text-gray-900 text-xl uppercase tracking-tight">
+                        {activeTab === 'coupons' ? 'Active Promo Codes' : 'Global Product Offers'}
+                    </h3>
+                    <div className="relative group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#e62020]" size={16} />
+                        <input 
+                            type="text" 
+                            placeholder="Find campaign..." 
+                            className="pl-12 pr-4 py-2 bg-white rounded-xl text-xs font-bold text-gray-900 border border-gray-200 focus:outline-none focus:border-[#e62020] w-64"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead className="bg-white text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">
+                            <tr>
+                                <th className="px-8 py-5 border-b border-gray-100">{activeTab === 'coupons' ? 'Coupon Code' : 'Offer Name'}</th>
+                                <th className="px-8 py-5 border-b border-gray-100">Discount</th>
+                                <th className="px-8 py-5 border-b border-gray-100">Validity</th>
+                                <th className="px-8 py-5 border-b border-gray-100">Targeting</th>
+                                <th className="px-8 py-5 border-b border-gray-100 w-32 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {filteredItems.length === 0 ? (
+                                <tr>
+                                    <td colSpan="5" className="px-8 py-12 text-center text-gray-400 font-bold uppercase tracking-widest text-sm text-[11px]">
+                                        No campaigns found. Start by adding one in the backend!
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredItems.map((item) => (
+                                    <tr key={item.id} className="hover:bg-red-50/30 transition-colors group">
+                                        <td className="px-8 py-5">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-[#e62020]/10 flex items-center justify-center text-[#e62020]">
+                                                    {activeTab === 'coupons' ? <ClipboardList size={20} /> : <Sparkles size={20} />}
+                                                </div>
+                                                <div>
+                                                    <span className="block text-sm font-black text-gray-900 tracking-tight">{activeTab === 'coupons' ? item.code : item.name}</span>
+                                                    <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">{item.description || 'Campaign description not set'}</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <span className="text-sm font-black text-[#e62020] tracking-tighter">{item.discount_percentage}% OFF</span>
+                                        </td>
+                                        <td className="px-8 py-5 font-mono text-xs font-bold text-gray-500">
+                                            {item.valid_to || item.end_date ? new Date(item.valid_to || item.end_date).toLocaleDateString() : 'N/A'}
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                                                {activeTab === 'coupons' 
+                                                    ? ( (item.valid_categories?.length || item.valid_products?.length) ? 'Targeted' : 'Storewide' )
+                                                    : ( (item.category || item.product) ? 'Restricted' : 'Global' )
+                                                }
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5 text-center">
+                                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                                                item.is_active ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-100 text-gray-400 border-gray-200'
+                                            }`}>
+                                                {item.is_active ? 'Live' : 'Paused'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div className="bg-[#e62020]/5 p-8 rounded-[32px] border border-red-100/50 flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                    <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#e62020] shadow-xl shadow-red-200/20 ring-4 ring-red-500/5">
+                        <Settings size={28} />
+                    </div>
+                    <div>
+                        <h4 className="text-gray-900 font-black uppercase tracking-tight text-xl">Advanced Campaign Logic</h4>
+                        <p className="text-gray-500 text-sm font-bold mt-1">Full controls for item-level targeting and dynamic dates are currently in the Backend Admin Panel.</p>
+                    </div>
+                </div>
+                <a 
+                    href="http://localhost:8000/admin/offers/" 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="px-8 py-4 bg-white border-2 border-gray-100 hover:border-[#e62020] hover:text-[#e62020] text-gray-600 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] transition-all shadow-sm hover:shadow-xl hover:-translate-y-1 active:scale-95 flex items-center gap-3"
+                >
+                    Access Cloud Control <LogOut size={16} className="rotate-[-45deg]" />
+                </a>
+            </div>
+        </div>
+    );
+};
+
 // Product Management Module
 const ProductManagement = () => {
     const { accessToken } = useSelector(state => state.auth);
@@ -645,13 +911,15 @@ const ProductManagement = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
 
-    const fetchData = async () => {
+    const fetchData = async (page = 1) => {
         if (!accessToken) return;
         setLoading(true);
         try {
             const [prodRes, catRes] = await Promise.all([
-                fetch('http://localhost:8000/api/admin/products/', {
+                fetch(`http://localhost:8000/api/admin/products/?page=${page}`, {
                     headers: { 'Authorization': `Bearer ${accessToken}` }
                 }),
                 fetch('http://localhost:8000/api/admin/categories/', {
@@ -663,6 +931,8 @@ const ProductManagement = () => {
             const catData = await catRes.json();
             
             setProducts(Array.isArray(prodData) ? prodData : (prodData.results || []));
+            setTotalItems(Array.isArray(prodData) ? prodData.length : (prodData.count || 0));
+            setCurrentPage(page);
             setCategories(Array.isArray(catData) ? catData : (catData.results || []));
         } catch (err) {
             console.error("Failed to fetch product master data", err);
@@ -672,7 +942,7 @@ const ProductManagement = () => {
     };
 
     useEffect(() => {
-        fetchData();
+        fetchData(1);
     }, [accessToken]);
 
     const filteredProducts = (products || []).filter(p => 
@@ -718,6 +988,24 @@ const ProductManagement = () => {
     const openEditModal = (product) => {
         setSelectedProduct(product);
         setIsModalOpen(true);
+    };
+
+    const handleDeleteProduct = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this product? This will also remove associated inventory records.")) return;
+        try {
+            const res = await fetch(`http://localhost:8000/api/admin/products/${id}/`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            if (res.ok) {
+                fetchData();
+            } else {
+                const errorData = await res.json();
+                alert(`Failed to delete product: ${errorData.detail || errorData.message || 'Unknown error'}`);
+            }
+        } catch (err) {
+            console.error(err);
+        }
     };
 
     if (loading) return <div className="p-8 h-full flex items-center justify-center"><Loader2 size={40} className="animate-spin text-[#e62020]" /></div>;
@@ -794,12 +1082,21 @@ const ProductManagement = () => {
                                             <span className="block text-sm font-black text-gray-900 tracking-tighter">रू {prod.selling_price || prod.price}</span>
                                         </td>
                                         <td className="px-8 py-5 text-right">
-                                            <button 
-                                                onClick={() => openEditModal(prod)}
-                                                className="text-[10px] font-black text-gray-400 hover:text-[#e62020] uppercase border border-gray-200 hover:border-[#e62020] px-3 py-1.5 rounded-lg transition-all"
-                                            >
-                                                Edit
-                                            </button>
+                                            <div className="flex justify-end gap-2">
+                                                <button 
+                                                    onClick={() => openEditModal(prod)}
+                                                    className="text-[10px] font-black text-gray-400 hover:text-[#e62020] uppercase border border-gray-200 hover:border-[#e62020] px-3 py-1.5 rounded-lg transition-all"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteProduct(prod.id)}
+                                                    className="p-1.5 text-gray-400 hover:text-[#e62020] hover:bg-red-50 border border-gray-100 hover:border-red-100 rounded-lg transition-all"
+                                                    title="Delete Product"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -807,6 +1104,11 @@ const ProductManagement = () => {
                         </tbody>
                     </table>
                 </div>
+                <Pagination 
+                    count={totalItems} 
+                    currentPage={currentPage} 
+                    onPageChange={fetchData} 
+                />
             </div>
             <ProductModal 
                 isOpen={isModalOpen}
@@ -1197,24 +1499,40 @@ const OrderManagement = () => {
     const { accessToken } = useSelector(state => state.auth);
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [statusFilter, setStatusFilter] = useState('All Status');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+
+    const fetchOrders = async (page = 1) => {
+        if (!accessToken) return;
+        setLoading(true);
+        try {
+            const res = await fetch(`http://localhost:8000/api/admin/orders/?page=${page}`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            const data = await res.json();
+            setOrders(data.results || []);
+            setTotalItems(data.count || 0);
+            setCurrentPage(page);
+        } catch (err) {
+            console.error("Failed to fetch orders", err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchOrders = async () => {
-            if (!accessToken) return;
-            try {
-                const res = await fetch('http://localhost:8000/api/admin/orders/', {
-                    headers: { 'Authorization': `Bearer ${accessToken}` }
-                });
-                const data = await res.json();
-                setOrders(Array.isArray(data) ? data : (data.results || []));
-            } catch (err) {
-                console.error("Failed to fetch orders", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchOrders();
+        fetchOrders(1);
     }, [accessToken]);
+
+    const filteredOrders = (orders || []).filter(order => {
+        const matchesStatus = statusFilter === 'All Status' || (order.status || '').toLowerCase() === statusFilter.toLowerCase();
+        const matchesSearch = !searchTerm || 
+            (order.id?.toString() || '').includes(searchTerm) || 
+            (order.customer_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesStatus && matchesSearch;
+    });
 
     if (loading) return <div className="p-8 h-full flex items-center justify-center"><Loader2 size={40} className="animate-spin text-[#e62020]" /></div>;
 
@@ -1232,16 +1550,28 @@ const OrderManagement = () => {
             <div className="bg-white rounded-[32px] border border-gray-100 shadow-xl shadow-gray-200/40 overflow-hidden">
                 <div className="p-8 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
                     <div className="flex gap-4">
-                        <select className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-bold text-gray-600 outline-none focus:border-[#e62020]">
+                        <select 
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-bold text-gray-600 outline-none focus:border-[#e62020]"
+                        >
                             <option>All Status</option>
                             <option>Pending</option>
                             <option>Packed</option>
+                            <option>In Transit</option>
                             <option>Delivered</option>
+                            <option>Cancelled</option>
                         </select>
                     </div>
                     <div className="relative group">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#e62020]" size={16} />
-                        <input type="text" placeholder="Search order ID or customer..." className="pl-12 pr-4 py-2 bg-white rounded-xl text-xs font-bold text-gray-900 border border-gray-200 focus:outline-none focus:border-[#e62020] w-72" />
+                        <input 
+                            type="text" 
+                            placeholder="Search order ID or customer..." 
+                            className="pl-12 pr-4 py-2 bg-white rounded-xl text-xs font-bold text-gray-900 border border-gray-200 focus:outline-none focus:border-[#e62020] w-72" 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
                 </div>
 
@@ -1258,10 +1588,10 @@ const OrderManagement = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {orders.length === 0 ? (
-                                <tr><td colSpan="6" className="px-8 py-12 text-center text-gray-400 font-bold uppercase tracking-widest text-sm text-[12px]">No orders currently in the fulfillment pipeline.</td></tr>
+                            {filteredOrders.length === 0 ? (
+                                <tr><td colSpan="6" className="px-8 py-12 text-center text-gray-400 font-bold uppercase tracking-widest text-sm text-[12px]">No orders match your current filter.</td></tr>
                             ) : (
-                                orders.map((order) => (
+                                filteredOrders.map((order) => (
                                     <tr key={order.id} className="hover:bg-red-50/30 transition-colors group">
                                         <td className="px-8 py-5">
                                             <span className="block text-sm font-black text-gray-900 tracking-tight">#{order.id}</span>
@@ -1323,6 +1653,11 @@ const OrderManagement = () => {
                         </tbody>
                     </table>
                 </div>
+                <Pagination 
+                    count={totalItems} 
+                    currentPage={currentPage} 
+                    onPageChange={fetchOrders} 
+                />
             </div>
         </div>
     );
@@ -1417,7 +1752,10 @@ const ReportsManagement = () => {
     }, [accessToken]);
 
     const handleDownloadReport = () => {
+        const originalTitle = document.title;
+        document.title = "QuickCarto Intelligence Report";
         window.print();
+        document.title = originalTitle;
     };
 
     if (!analytics) {
@@ -1452,15 +1790,178 @@ const ReportsManagement = () => {
                 <div className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-xl shadow-gray-200/40 space-y-6 print:shadow-none print:border-gray-200 print:rounded-[12px] print:p-6">
                     <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight border-b border-gray-100 pb-2">Sales Register (Hubs)</h3>
                     <div className="space-y-4 text-sm font-bold text-gray-700 mt-4">
-                        <div className="flex justify-between"><span>Kathmandu Hub Total:</span> <span className="text-[#e62020]">रू {Math.round((analytics.total_revenue || 0) * 0.55).toLocaleString()}</span></div>
-                        <div className="flex justify-between"><span>Lalitpur Node Total:</span> <span className="text-[#e62020]">रू {Math.round((analytics.total_revenue || 0) * 0.30).toLocaleString()}</span></div>
-                        <div className="flex justify-between"><span>Bhaktapur Center Total:</span> <span className="text-[#e62020]">रू {Math.round((analytics.total_revenue || 0) * 0.15).toLocaleString()}</span></div>
+                        {Object.entries(analytics.warehouse_revenue || {}).length === 0 ? (
+                            <div className="text-center py-4 text-gray-400 font-bold uppercase tracking-widest text-[10px]">No hub sales data collected.</div>
+                        ) : (
+                            Object.entries(analytics.warehouse_revenue).map(([name, rev]) => (
+                                <div key={name} className="flex justify-between items-center">
+                                    <span>{name} Total:</span>
+                                    <span className="text-[#e62020]">रू {rev.toLocaleString()}</span>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
             </div>
             
             <div className="hidden print:block text-center text-xs text-gray-400 font-bold uppercase mt-10">
                 Generated internally via QuickCarto Administrative Suite. Validated system output.
+            </div>
+        </div>
+    );
+};
+
+// Rider Compliance & Approval Module
+const RiderCompliance = () => {
+    const { accessToken } = useSelector(state => state.auth);
+    const [riders, setRiders] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState({});
+
+    const fetchRiders = async () => {
+        if (!accessToken) return;
+        setLoading(true);
+        try {
+            const q = encodeURIComponent('delivery');
+            const res = await fetch(`http://localhost:8000/api/admin/users/?search=${q}`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            const data = await res.json();
+            const results = Array.isArray(data) ? data : (data.results || []);
+            setRiders(results.filter(u => u.role === 'delivery'));
+        } catch (err) {
+            console.error("Failed to fetch riders", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchRiders();
+    }, [accessToken]);
+
+    const handleToggleApproval = async (id, currentStatus) => {
+        setActionLoading(prev => ({ ...prev, [id]: true }));
+        try {
+            const res = await fetch(`http://localhost:8000/api/admin/users/${id}/`, {
+                method: 'PATCH',
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ is_approved: !currentStatus })
+            });
+            if (res.ok) {
+                setRiders(prev => prev.map(r => r.id === id ? { ...r, is_approved: !currentStatus } : r));
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setActionLoading(prev => ({ ...prev, [id]: false }));
+        }
+    };
+
+    const getImageUrl = (path) => {
+        if (!path) return null;
+        if (typeof path !== 'string') return path;
+        if (path.startsWith('http') || path.startsWith('blob:') || path.startsWith('data:')) return path;
+        const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+        return `http://localhost:8000${encodeURI(normalizedPath)}`;
+    };
+
+    if (loading) return <div className="p-8 h-full flex items-center justify-center"><Loader2 size={40} className="animate-spin text-[#e62020]" /></div>;
+
+    return (
+        <div className="p-10 space-y-8 animate-in fade-in duration-500 max-w-[1600px] mx-auto">
+            <header>
+                <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase leading-none">Rider Compliance</h1>
+                <p className="text-gray-500 mt-2 font-bold uppercase tracking-widest text-[11px] flex items-center gap-2">
+                    <Activity size={14} className="text-[#e62020]" /> Review Partner Credentials
+                </p>
+            </header>
+
+            <div className="grid grid-cols-1 gap-8">
+                {riders.map(rider => (
+                    <div key={rider.id} className="bg-white rounded-[40px] border border-gray-100 shadow-xl p-10 space-y-10 hover:border-red-100 transition-all">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-gray-100 pb-10">
+                            <div className="flex items-center gap-6">
+                                <div className="w-20 h-20 rounded-3xl bg-gray-100 overflow-hidden border-4 border-white shadow-lg">
+                                     {rider.profile_photo ? (
+                                         <img src={getImageUrl(rider.profile_photo)} className="w-full h-full object-cover" />
+                                     ) : (
+                                         <div className="w-full h-full flex items-center justify-center text-3xl font-black text-gray-300 uppercase">{(rider.full_name || rider.username)?.charAt(0)}</div>
+                                     )}
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="font-black text-2xl text-gray-900 uppercase tracking-tighter">{rider.full_name || rider.username}</h3>
+                                        {rider.is_approved ? (
+                                            <span className="bg-green-100 text-green-700 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border border-green-200">Verified</span>
+                                        ) : (
+                                            <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border border-yellow-200">Pending Review</span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">{rider.email} • {rider.phone_number || 'No Contact'}</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => handleToggleApproval(rider.id, rider.is_approved)}
+                                disabled={actionLoading[rider.id]}
+                                className={`px-10 py-5 rounded-[24px] text-xs font-black uppercase tracking-[0.2em] transition-all shadow-2xl active:scale-95 flex items-center gap-3 ${
+                                    rider.is_approved 
+                                    ? 'bg-white text-[#e62020] border-2 border-red-50 hover:bg-red-50' 
+                                    : 'bg-[#e62020] text-white hover:bg-[#cc1b1b] shadow-red-500/20'
+                                }`}
+                            >
+                                {actionLoading[rider.id] ? <Loader2 size={16} className="animate-spin" /> : rider.is_approved ? 'Revoke Access' : 'Approve Partner'}
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                            {[
+                                { label: 'Bluebook Image', field: 'bluebook_image' },
+                                { label: 'License Photo', field: 'license_image' },
+                                { label: 'Vehicle Photo', field: 'vehicle_image' }
+                            ].map(doc => (
+                                <div key={doc.field} className="space-y-4">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">{doc.label}</p>
+                                    <div 
+                                        className="aspect-[4/3] bg-gray-50 rounded-[40px] border-2 border-gray-100 overflow-hidden relative cursor-pointer group shadow-inner" 
+                                        onClick={() => rider[doc.field] && window.open(getImageUrl(rider[doc.field]), '_blank')}
+                                    >
+                                        {rider[doc.field] ? (
+                                            <img src={getImageUrl(rider[doc.field])} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                        ) : (
+                                            <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+                                                <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-300"><FileText size={24}/></div>
+                                                <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">No Documents</span>
+                                            </div>
+                                        )}
+                                        {rider[doc.field] && (
+                                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-3 backdrop-blur-sm">
+                                                <div className="w-12 h-12 rounded-full border-2 border-white/50 flex items-center justify-center"><Search size={20}/></div>
+                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] px-4 py-2 bg-white/10 rounded-full">Examine Full Scale</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        {rider.vehicle_details && (
+                           <div className="bg-gray-50/50 p-8 rounded-[32px] border border-gray-100 border-dashed">
+                               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Vehicle Specifications Statement</p>
+                               <p className="text-base font-black text-gray-900 uppercase tracking-tight leading-relaxed">{rider.vehicle_details}</p>
+                           </div>
+                        )}
+                    </div>
+                ))}
+                {riders.length === 0 && (
+                    <div className="p-32 bg-white rounded-[40px] border border-gray-100 flex flex-col items-center justify-center gap-6 text-center shadow-xl shadow-gray-200/20">
+                        <div className="w-20 h-20 rounded-[28px] bg-gray-50 flex items-center justify-center text-gray-200"><Users size={40}/></div>
+                        <p className="text-[12px] font-black text-gray-300 uppercase tracking-[0.3em] max-w-sm">Registry Clear. No delivery partners are currently awaiting compliance audits.</p>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -1665,7 +2166,9 @@ export const AdminDashboard = () => {
                         <Route path="/inventory" element={<InventoryManagement />} />
                         <Route path="/warehouses" element={<WarehouseManagement />} />
                         <Route path="/categories" element={<CategoryManagement />} />
+                        <Route path="/offers" element={<OffersManagement />} />
                         <Route path="/orders" element={<OrderManagement />} />
+                        <Route path="/compliance" element={<RiderCompliance />} />
                         <Route path="/analytics" element={<ReportsManagement />} />
                         <Route path="/settings" element={<PlatformSettings />} />
                     </Routes>

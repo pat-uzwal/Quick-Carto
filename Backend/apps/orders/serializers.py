@@ -81,10 +81,11 @@ class OrderSerializer(serializers.ModelSerializer):
             'id', 'status', 'status_display', 'warehouse', 'warehouse_name', 'delivery_address',
             'delivery_lat', 'delivery_lng', 'subtotal', 'discount_amount',
             'delivery_fee', 'total_amount', 'items', 'delivery_assignment', 'created_at', 'delivery_otp',
-            'is_rated', 'rating', 'customer_name', 'customer_phone', 'rider_name',
+            'is_rated', 'rating', 'customer_name', 'customer_email', 'customer_phone', 'rider_name',
         )
 
     customer_name = serializers.CharField(source='user.full_name', read_only=True)
+    customer_email = serializers.CharField(source='user.email', read_only=True)
     customer_phone = serializers.CharField(source='user.phone_number', read_only=True)
     rider_name = serializers.CharField(source='delivery_assignment.delivery_man.full_name', default='Unassigned', read_only=True)
 

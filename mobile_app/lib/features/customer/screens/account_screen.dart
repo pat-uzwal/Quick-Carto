@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/login_screen.dart';
+import '../../auth/screens/change_password_screen.dart';
 import 'my_orders_screen.dart';
 import '../../../core/api_service.dart';
 
@@ -488,12 +489,11 @@ class _AccountScreenState extends State<AccountScreen> {
         ),
         const SizedBox(height: 16),
         _sectionCard(
-          title: 'Support & More',
+          title: 'Security & Privacy',
           child: Column(
             children: [
-              _quickAction(LucideIcons.messageCircle, 'Customer Support', '24/7 help & FAQ', _openSupport),
-              _quickAction(LucideIcons.lightbulb, 'Suggest a Product', 'Request a new product', _openSuggest),
-              _quickAction(LucideIcons.link, 'Link Device', 'Manage linked devices', _openLinkDevice),
+              _quickAction(LucideIcons.lock, 'Change Password', 'Update your login credentials', () => 
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ChangePasswordScreen()))),
               _quickAction(LucideIcons.shieldCheck, 'Privacy Policy', 'How we handle your data', _openPrivacy),
               _quickAction(LucideIcons.fileText, 'Terms of Service', 'Our terms and conditions', _openTerms),
             ],

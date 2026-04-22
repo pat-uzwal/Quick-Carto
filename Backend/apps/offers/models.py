@@ -31,6 +31,11 @@ class Coupon(models.Model):
     valid_to = models.DateTimeField()
     
     is_active = models.BooleanField(default=True)
+    
+    # Targeting Restrictions
+    valid_categories = models.ManyToManyField(Category, blank=True, related_name='exclusive_coupons', help_text="If set, coupon only applies to items in these categories")
+    valid_products = models.ManyToManyField(Product, blank=True, related_name='exclusive_coupons', help_text="If set, coupon only applies to these specific products")
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -40,13 +45,41 @@ class Coupon(models.Model):
     def __str__(self):
         return f"{self.code} ({self.discount_percentage}% OFF)"
 
-    def is_valid(self, cart_total=0):
+    def is_valid(self, cart_total=0, cart_items=None):
         from django.utils import timezone
         now = timezone.now()
+        
         if not self.is_active:
             return False, "Coupon is inactive."
+            
         if now < self.valid_from or now > self.valid_to:
             return False, "Coupon has expired or is not yet active."
+            
         if cart_total < self.min_purchase_amount:
             return False, f"Minimum purchase of NPR {self.min_purchase_amount} required."
+
+        # Check for item restrictions
+        has_cats = self.valid_categories.exists()
+        has_prods = self.valid_products.exists()
+        
+        if has_cats or has_prods:
+            if cart_items is None:
+                # If we don't have items to check yet, assume valid for now (prevents blocker in simple validation)
+                return True, "Valid"
+                
+            valid_cat_ids = set(self.valid_categories.values_list('id', flat=True))
+            valid_prod_ids = set(self.valid_products.values_list('id', flat=True))
+            
+            eligible_count = 0
+            for item in cart_items:
+                # item can be an OrderItem or CartItem or simple dict
+                pid = getattr(item.product, 'id', None) or item.product_id
+                cid = getattr(item.product, 'category_id', None)
+                
+                if pid in valid_prod_ids or cid in valid_cat_ids:
+                    eligible_count += 1
+            
+            if eligible_count == 0:
+                return False, "None of the items in your cart are eligible for this coupon."
+
         return True, "Valid"

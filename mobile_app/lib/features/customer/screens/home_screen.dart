@@ -25,6 +25,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  String? _nextProdUrl;
   String? _userDefinedLocation;
 
   @override
@@ -55,6 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final catData = jsonDecode(resCats.body);
           setState(() {
             _products = prodData is List ? prodData : (prodData['results'] ?? []) as List;
+            _nextProdUrl = prodData is Map ? prodData['next'] : null;
             _categories = catData is List ? catData : (catData['results'] ?? []) as List;
             _isLoading = false;
           });
@@ -70,6 +73,29 @@ class _HomeScreenState extends State<HomeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Network Error: $e')));
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _loadMoreProducts() async {
+    if (_nextProdUrl == null || _isLoadingMore) return;
+    setState(() => _isLoadingMore = true);
+    try {
+      final uri = Uri.parse(_nextProdUrl!);
+      final endpoint = uri.path.replaceAll('/api/', '') + '?' + uri.query;
+      final res = await ApiService.get(endpoint);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (mounted) {
+          setState(() {
+            _products.addAll(data['results'] ?? []);
+            _nextProdUrl = data['next'];
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Load More Products Error: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -102,16 +128,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: _isLoading 
-        ? const Center(child: SizedBox(width: 36, height: 36, child: CircularProgressIndicator(color: Color(0xFFE62020), strokeWidth: 3)))
-        : CustomScrollView(
-            physics: const ClampingScrollPhysics(), // Prevent "extending" stretch gaps
-            cacheExtent: 1000,
-            slivers: [
-              // Unified Header (Moves with content)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 60, bottom: 10, left: 16, right: 16),
+      body: SafeArea(
+        child: _isLoading 
+          ? const Center(child: SizedBox(width: 36, height: 36, child: CircularProgressIndicator(color: Color(0xFFE62020), strokeWidth: 3)))
+          : CustomScrollView(
+              physics: const ClampingScrollPhysics(), // Prevent "extending" stretch gaps
+              cacheExtent: 1000,
+              slivers: [
+                // Unified Header (Moves with content)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 20, bottom: 10, left: 16, right: 16),
                   child: Row(
                     children: [
                       GestureDetector(
@@ -175,9 +202,26 @@ class _HomeScreenState extends State<HomeScreen> {
               else
                 ..._categories.map((cat) => _buildCategorySection(cat, cart)).toList(),
                 
+              if (_nextProdUrl != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Center(
+                      child: _isLoadingMore
+                          ? const CircularProgressIndicator(color: Color(0xFFE62020), strokeWidth: 2)
+                          : TextButton(
+                              onPressed: _loadMoreProducts,
+                              child: const Text('DISCOVER MORE PRODUCTS',
+                                  style: TextStyle(color: Color(0xFFE62020), fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
+                            ),
+                    ),
+                  ),
+                ),
+                
               const SliverToBoxAdapter(child: SizedBox(height: 100)),
             ],
           ),
+      ),
       bottomNavigationBar: _buildBottomNav(cart),
     );
   }

@@ -12,3 +12,4 @@ class CouponAdmin(admin.ModelAdmin):
     list_display = ('code', 'discount_percentage', 'min_purchase_amount', 'valid_to', 'is_active')
     list_filter = ('is_active', 'valid_from', 'valid_to')
     search_fields = ('code',)
+    filter_horizontal = ('valid_categories', 'valid_products')

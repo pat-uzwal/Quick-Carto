@@ -6,6 +6,8 @@ import '../../customer/screens/home_screen.dart';
 import '../../delivery/screens/rider_dashboard.dart';
 import 'otp_verification_screen.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
+import '../../../core/widgets/app_logo.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -89,14 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(LucideIcons.logIn, color: Color(0xFFE62020), size: 32),
-                ),
+                const AppLogo(scale: 0.65),
                 const SizedBox(height: 16),
                 const Text("Welcome Back", style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900)),
                 const Text("Sign in to your Quickcarto account", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w700)),
@@ -133,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {},
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
                     child: const Text("Forgot Password?", style: TextStyle(color: Color(0xFFE62020), fontWeight: FontWeight.bold)),
                   ),
                 ),

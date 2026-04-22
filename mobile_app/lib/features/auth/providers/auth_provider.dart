@@ -34,6 +34,24 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Helper to extract error message from dynamic backend response
+  String _parseError(dynamic data) {
+    if (data == null) return 'Unknown error occurred';
+    if (data is String) return data;
+    if (data is Map) {
+      if (data.containsKey('detail')) return _parseError(data['detail']);
+      if (data.containsKey('message')) return _parseError(data['message']);
+      if (data.containsKey('non_field_errors')) return _parseError(data['non_field_errors']);
+      if (data.isNotEmpty) {
+        return _parseError(data.values.first);
+      }
+    }
+    if (data is List) {
+      return data.isNotEmpty ? _parseError(data.first) : 'An error occurred';
+    }
+    return data.toString();
+  }
+
   /// Standard email + password login
   Future<void> login(String email, String password) async {
     _isLoading = true;
@@ -61,10 +79,10 @@ class AuthProvider with ChangeNotifier {
           _user = data['user'];
         }
       } else {
-        _error = data['detail'] ?? 'Invalid credentials';
+        _error = _parseError(data);
       }
     } catch (e) {
-      _error = 'Network error: $e';
+      _error = 'Network error: ${e.toString()}';
     }
 
     _isLoading = false;
@@ -104,13 +122,13 @@ class AuthProvider with ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        _error = data['detail'] ?? 'Invalid or expired OTP';
+        _error = _parseError(data);
         _isLoading = false;
         notifyListeners();
         return false;
       }
     } catch (e) {
-      _error = 'Network error: $e';
+      _error = 'Network error: ${e.toString()}';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -134,13 +152,13 @@ class AuthProvider with ChangeNotifier {
         return true;
       } else {
         final data = jsonDecode(res.body);
-        _error = data['detail'] ?? 'Failed to send OTP';
+        _error = _parseError(data);
         _isLoading = false;
         notifyListeners();
         return false;
       }
     } catch (e) {
-      _error = 'Network error: $e';
+      _error = 'Network error: ${e.toString()}';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -174,6 +192,38 @@ class AuthProvider with ChangeNotifier {
       }
     } catch (e) {
       debugPrint("Fetch User Profile Error: $e");
+    }
+  }
+
+  /// Verify OTP and reset password
+  Future<bool> resetPassword(String email, String otp, String newPassword) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final res = await ApiService.post('/auth/reset-password/', {
+        'email': email,
+        'otp': otp,
+        'new_password': newPassword,
+      });
+
+      if (res.statusCode == 200) {
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        final data = jsonDecode(res.body);
+        _error = _parseError(data);
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _error = 'Network error: ${e.toString()}';
+      _isLoading = false;
+      notifyListeners();
+      return false;
     }
   }
 }

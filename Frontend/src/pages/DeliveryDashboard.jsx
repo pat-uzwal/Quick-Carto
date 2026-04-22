@@ -3,10 +3,18 @@ import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import DeliverySidebar from '../components/DeliverySidebar';
 import { Package, Truck, MapPin, User, LogOut, Navigation, Star, Clock, CheckCircle2, DollarSign, Activity, Bell, X, ChevronRight, AlertTriangle, Zap, XCircle, Phone, Map, History, Settings as SettingsIcon, FileText, Upload, Camera, Send, MessageSquare } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
-import { logout } from '../features/auth/authSlice';
+import { logout, updateProfile } from '../features/auth/authSlice';
 import OrderChat from '../components/DeliveryChat';
 
 const API = 'http://localhost:8000/api';
+
+const getImageUrl = (path) => {
+    if (!path) return null;
+    if (typeof path !== 'string') return path;
+    if (path.startsWith('http') || path.startsWith('blob:') || path.startsWith('data:')) return path;
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `http://localhost:8000${encodeURI(normalizedPath)}`;
+};
 
 /* ─── Shared Components ────────────────────────────────────────────── */
 
@@ -264,7 +272,7 @@ const DeliveryOverview = () => {
                  {[
                     { label: 'Shift Success', value: stats?.today_delivered || 0, icon: <CheckCircle2 size={20}/>, color: 'from-green-100 to-green-50 text-green-600' },
                     { label: 'Active Pings', value: notifications.length, icon: <Bell size={20}/>, color: 'from-orange-100 to-orange-50 text-orange-600' },
-                    { label: 'Partner Grade', value: '4.8 ⭐', icon: <Star size={20}/>, color: 'from-blue-100 to-blue-50 text-blue-600' },
+                    { label: 'Partner Grade', value: stats?.avg_rating != null ? `${stats.avg_rating} ⭐` : 'No Ratings', icon: <Star size={20}/>, color: 'from-blue-100 to-blue-50 text-blue-600' },
                     { label: 'Total Payout', value: `रू ${stats?.total_earnings || 0}`, icon: <DollarSign size={20}/>, color: 'from-yellow-100 to-yellow-50 text-yellow-600' },
                  ].map((stat, i) => (
                     <div key={i} className={`p-8 bg-gradient-to-br ${stat.color} rounded-[32px] border border-white shadow-xl flex items-center justify-between group`}>
@@ -394,6 +402,8 @@ const MissionArchives = () => {
 
 const RiderSettings = () => {
     const { user, accessToken } = useSelector(state => state.auth);
+    const dispatch = useDispatch();
+
     const [formData, setFormData] = useState({
         full_name: user?.full_name || '',
         phone_number: user?.phone_number || '',
@@ -439,7 +449,7 @@ const RiderSettings = () => {
                         <div className="relative group">
                             <div className="w-40 h-40 bg-gray-50 rounded-[48px] border-4 border-white shadow-2xl overflow-hidden flex items-center justify-center relative">
                                 {previews.profile_photo || user?.profile_photo ? (
-                                    <img src={previews.profile_photo || user.profile_photo} className="w-full h-full object-cover" />
+                                    <img src={getImageUrl(previews.profile_photo || user.profile_photo)} className="w-full h-full object-cover" />
                                 ) : ( <User size={64} className="text-gray-200" /> )}
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all cursor-pointer">
                                      <Camera className="text-white" />
@@ -460,10 +470,10 @@ const RiderSettings = () => {
                 <div className="bg-white p-10 rounded-[40px] border border-gray-100 shadow-2xl space-y-8">
                      <div className="flex items-center justify-between"><div className="flex items-center gap-4"><FileText size={20} className="text-[#FF3B30]"/><h3 className="font-black uppercase text-xs tracking-widest text-gray-900">Partner Credentials</h3></div><span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${user?.is_approved ? 'bg-green-50 text-green-600 border-green-200' : 'bg-yellow-50 text-yellow-600 border-yellow-200'}`}>{user?.is_approved ? 'Trust Verified' : 'Compliance Pending'}</span></div>
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {[{ f: 'bluebook_image', l: 'Bluebook (Main)', d: 'Ownership Proof' }, { f: 'license_image', l: 'License (Front)', d: 'Operator ID' }, { f: 'vehicle_image', l: 'Vehicle (Side)', d: 'Unit Photo' }].map(it => (
+                        {[{ f: 'bluebook_image', l: 'Bluebook Image', d: 'Bluebook' }, { f: 'license_image', l: 'License Photo', d: 'License' }, { f: 'vehicle_image', l: 'Vehicle Photo', d: 'Vehicle' }].map(it => (
                             <div key={it.f} className="space-y-4">
                                 <div className="aspect-[4/3] bg-gray-50 rounded-[32px] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center p-4 relative overflow-hidden group hover:bg-gray-100 transition-all cursor-pointer">
-                                    {previews[it.f] || user?.[it.f] ? <img src={previews[it.f] || user[it.f]} className="absolute inset-0 w-full h-full object-cover" /> : <div className="text-center"><Upload size={24} className="text-gray-300 mx-auto mb-2"/><p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{it.l}</p></div>}
+                                    {previews[it.f] || user?.[it.f] ? <img src={getImageUrl(previews[it.f] || user[it.f])} className="absolute inset-0 w-full h-full object-cover" /> : <div className="text-center"><Upload size={24} className="text-gray-300 mx-auto mb-2"/><p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{it.l}</p></div>}
                                     <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileChange(e, it.f)} />
                                 </div>
                                 <p className="text-[7px] font-black text-gray-400 uppercase text-center">{it.d}</p>
@@ -511,7 +521,7 @@ export const DeliveryDashboard = () => {
                          <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate('/delivery/settings')}>
                               <div className="text-right hidden sm:block"><span className="block text-sm font-black text-gray-900 uppercase leading-none">{user?.full_name || 'Rider Runner'}</span><span className="text-[8px] font-black text-[#FF3B30] uppercase tracking-widest mt-1 block">Active Partner</span></div>
                               <div className="w-14 h-14 bg-gray-50 rounded-[20px] border-4 border-white shadow-2xl overflow-hidden flex items-center justify-center font-black text-[#FF3B30] hover:scale-105 transition-transform">
-                                 {user?.profile_photo ? <img src={user.profile_photo.startsWith('http') ? user.profile_photo : `http://localhost:8000${user.profile_photo}`} className="w-full h-full object-cover" /> : (user?.full_name?.charAt(0) || <User size={24}/>)}
+                                  {user?.profile_photo ? <img src={getImageUrl(user.profile_photo)} className="w-full h-full object-cover" /> : (user?.full_name?.charAt(0) || <User size={24}/>)}
                               </div>
                          </div>
                     </div>

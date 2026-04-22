@@ -28,28 +28,28 @@ class ApiService {
   static Future<http.Response> post(String endpoint, Map<String, dynamic> body, {bool isFleet = false}) async {
     final cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
     final url = '$baseUrl$cleanEndpoint';
-    return await http.post(Uri.parse(url), headers: await _getHeaders(), body: jsonEncode(body)).timeout(const Duration(seconds: 15));
+    return await http.post(Uri.parse(url), headers: await _getHeaders(), body: jsonEncode(body)).timeout(const Duration(seconds: 30));
   }
 
   static Future<http.Response> get(String endpoint, {bool isFleet = false}) async {
     final cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
     final url = '$baseUrl$cleanEndpoint';
-    return await http.get(Uri.parse(url), headers: await _getHeaders()).timeout(const Duration(seconds: 15));
+    return await http.get(Uri.parse(url), headers: await _getHeaders()).timeout(const Duration(seconds: 30));
   }
 
   static Future<http.Response> put(String endpoint, Map<String, dynamic> body, {bool isFleet = false}) async {
     final cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
-    return await http.put(Uri.parse('$baseUrl$cleanEndpoint'), headers: await _getHeaders(), body: jsonEncode(body)).timeout(const Duration(seconds: 15));
+    return await http.put(Uri.parse('$baseUrl$cleanEndpoint'), headers: await _getHeaders(), body: jsonEncode(body)).timeout(const Duration(seconds: 30));
   }
 
   static Future<http.Response> patch(String endpoint, Map<String, dynamic> body, {bool isFleet = false}) async {
     final cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
-    return await http.patch(Uri.parse('$baseUrl$cleanEndpoint'), headers: await _getHeaders(), body: jsonEncode(body)).timeout(const Duration(seconds: 15));
+    return await http.patch(Uri.parse('$baseUrl$cleanEndpoint'), headers: await _getHeaders(), body: jsonEncode(body)).timeout(const Duration(seconds: 30));
   }
 
   static Future<http.Response> delete(String endpoint, {bool isFleet = false}) async {
     final cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
-    return await http.delete(Uri.parse('$baseUrl$cleanEndpoint'), headers: await _getHeaders()).timeout(const Duration(seconds: 15));
+    return await http.delete(Uri.parse('$baseUrl$cleanEndpoint'), headers: await _getHeaders()).timeout(const Duration(seconds: 30));
   }
 
   static Future<http.MultipartRequest> multipartRequest(String endpoint, {String method = 'POST', bool isFleet = false}) async {

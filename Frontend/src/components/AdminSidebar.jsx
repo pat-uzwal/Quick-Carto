@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { 
     LayoutDashboard, Users, ShoppingBag, List, BarChart3, LogOut, 
-    ChevronRight, Settings, ShieldCheck, Package, Warehouse, ClipboardList 
+    ChevronRight, Settings, ShieldCheck, Package, Warehouse, ClipboardList, Sparkles 
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../features/auth/authSlice';
@@ -17,7 +17,9 @@ const AdminSidebar = () => {
         { name: 'Inventory', path: '/admin/inventory', icon: <Package size={20} /> },
         { name: 'Warehouses', path: '/admin/warehouses', icon: <Warehouse size={20} /> },
         { name: 'Categories', path: '/admin/categories', icon: <List size={20} /> },
+        { name: 'Offers', path: '/admin/offers', icon: <Sparkles size={20} /> },
         { name: 'Orders', path: '/admin/orders', icon: <ClipboardList size={20} /> },
+        { name: 'Compliance', path: '/admin/compliance', icon: <ShieldCheck size={20} /> },
         { name: 'Users', path: '/admin/users', icon: <Users size={20} /> },
         { name: 'Reports', path: '/admin/analytics', icon: <BarChart3 size={20} /> },
     ];
@@ -26,13 +28,8 @@ const AdminSidebar = () => {
         <aside className="w-72 bg-white border-r border-gray-100 flex flex-col h-screen fixed left-0 top-0 z-20 shadow-2xl shadow-gray-200/20">
             {/* Branding Section */}
             <div className="p-8 border-b border-gray-100 bg-gray-50/50">
-                <div className="flex items-center gap-4 mb-8">
-                    <div className="w-12 h-12 bg-white border border-gray-100 rounded-2xl flex items-center justify-center text-[#e62020] shadow-xl shadow-gray-200/50">
-                        <ShieldCheck size={26} strokeWidth={2.5} />
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-xl font-black text-gray-900 tracking-tighter uppercase italic leading-none">QuickCarto</span>
-                    </div>
+                <div className="flex items-center gap-4 mb-10 px-2">
+                    <span className="text-3xl font-[1000] text-[#E62020] tracking-tighter uppercase italic leading-none">QuickCarto</span>
                 </div>
                 
                 <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">

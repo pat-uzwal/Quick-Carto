@@ -29,6 +29,8 @@ def get_active_offer_for_product(product):
         start_date__lte=now,
         end_date__gte=now
     ).order_by('-discount_percentage').first()
+    
+    return category_offer
 
 def bulk_get_offers_for_products(products_list):
     """

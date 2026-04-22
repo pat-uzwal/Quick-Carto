@@ -14,6 +14,7 @@ import ProductDetails from './pages/ProductDetails'
 import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
 import CategoryProducts from './pages/CategoryProducts'
+import AllCategories from './pages/AllCategories'
 import MyOrders from './pages/MyOrders'
 import ProductsList from './pages/ProductsList'
 import Profile from './pages/Profile'
@@ -31,6 +32,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/product/:id" element={<ProductDetails />} />
         <Route path="/category/:categoryId" element={<CategoryProducts />} />
+        <Route path="/categories" element={<AllCategories />} />
         <Route path="/search" element={<ProductsList />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={

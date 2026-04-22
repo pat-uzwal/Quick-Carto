@@ -163,7 +163,7 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
+    'PAGE_SIZE': 20,
 }
 
 # SimpleJWT Settings
@@ -190,13 +190,7 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
 }
 
-# EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
-# EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
-# EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
-# EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
-# EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
-# EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
-# DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@quickcarto.com')
+
 
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -206,5 +200,6 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'quickcartoofficial@gmail.com'
 EMAIL_HOST_PASSWORD = 'umbi yofj bpit jkbf'
 
-KHALTI_SECRET_KEY = config('KHALTI_SECRET_KEY', default='test_secret_key_xxxxxxxxxxxxxxxxxxxxxxxx')
+KHALTI_PUBLIC_KEY = config('KHALTI_PUBLIC_KEY', default='')
+KHALTI_SECRET_KEY = config('KHALTI_SECRET_KEY', default='')
 KHALTI_VERIFY_URL = 'https://khalti.com/api/v2/payment/verify/'

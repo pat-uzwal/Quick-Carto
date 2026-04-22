@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Package, ClipboardList, Truck, LogOut, ChevronRight, Boxes, History, Settings, Shield, Activity, Store, Users, Map, BarChart2, Bell, RefreshCw, User } from 'lucide-react';
+import { Package, ClipboardList, Truck, LogOut, ChevronRight, Boxes, History, Settings, Shield, Activity, Users, Map, BarChart2, Bell, RefreshCw, User } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../features/auth/authSlice';
 
@@ -23,11 +23,8 @@ const WarehouseSidebar = () => {
             {/* Branding Section */}
             <div className="p-8 border-b border-gray-100 bg-gray-50/50">
                 <div className="flex items-center gap-4 mb-8">
-                    <div className="w-12 h-12 bg-white border border-gray-100 rounded-2xl flex items-center justify-center text-[#e62020] shadow-xl shadow-gray-200/50">
-                        <Store size={26} strokeWidth={2.5} />
-                    </div>
                     <div className="flex flex-col">
-                        <span className="text-xl font-black text-gray-900 tracking-tighter uppercase italic leading-none">QuickCarto</span>
+                        <span className="text-xl font-black text-[#e62020] tracking-tighter uppercase italic leading-none">QuickCarto</span>
                         <span className="text-[10px] font-black text-[#e62020] uppercase tracking-widest mt-1">Warehouse Ops</span>
                     </div>
                 </div>

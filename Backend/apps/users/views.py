@@ -291,6 +291,20 @@ class UserViewSet(viewsets.ModelViewSet):
         user.save()
         return Response({'detail': f'User role updated to {new_role}.'})
 
+    @action(detail=False, methods=['POST'], permission_classes=[IsAuthenticated])
+    def change_password(self, request):
+        """Standard authenticated password change."""
+        user = request.user
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+        
+        if not user.check_password(old_password):
+            return Response({'detail': 'Current password incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user.set_password(new_password)
+        user.save()
+        return Response({'detail': 'Password updated successfully.'})
+
 
 class AddressViewSet(viewsets.ModelViewSet):
     

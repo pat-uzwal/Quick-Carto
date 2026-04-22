@@ -8,7 +8,7 @@ User = get_user_model()
 
 class AuthenticationAPITests(APITestCase):
     def setUp(self):
-        self.register_url = reverse('auth_register')
+        self.register_url = reverse('auth-register')
         self.request_otp_url = reverse('request-otp')
         self.verify_otp_url = reverse('verify-otp')
         
@@ -65,3 +65,4 @@ class AuthenticationAPITests(APITestCase):
         
         response = self.client.post(self.verify_otp_url, verify_data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+

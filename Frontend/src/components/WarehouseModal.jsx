@@ -8,6 +8,8 @@ const WarehouseModal = ({ isOpen, onClose, warehouse, onSave }) => {
         name: '',
         code: '',
         address: '',
+        latitude: '',
+        longitude: '',
         is_active: true
     });
 
@@ -17,6 +19,8 @@ const WarehouseModal = ({ isOpen, onClose, warehouse, onSave }) => {
                 name: warehouse.name || '',
                 code: warehouse.code || '',
                 address: warehouse.address || '',
+                latitude: warehouse.latitude || '',
+                longitude: warehouse.longitude || '',
                 is_active: warehouse.is_active !== undefined ? warehouse.is_active : true
             });
         } else {
@@ -24,6 +28,8 @@ const WarehouseModal = ({ isOpen, onClose, warehouse, onSave }) => {
                 name: '',
                 code: '',
                 address: '',
+                latitude: '',
+                longitude: '',
                 is_active: true
             });
         }
@@ -105,6 +111,16 @@ const WarehouseModal = ({ isOpen, onClose, warehouse, onSave }) => {
                         <div className="space-y-4">
                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Location Address</label>
                             <textarea name="address" value={formData.address} onChange={handleChange} required rows={3} placeholder="Full address coordinates..." className="w-full bg-gray-50 border border-gray-100 rounded-[24px] px-6 py-4 text-sm font-bold focus:outline-none focus:border-[#e62020] transition-all resize-none" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Latitude</label>
+                                <input name="latitude" type="number" step="any" value={formData.latitude} onChange={handleChange} required placeholder="e.g. 27.7172" className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-xs font-mono font-bold focus:outline-none focus:border-[#e62020] transition-all" />
+                            </div>
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Longitude</label>
+                                <input name="longitude" type="number" step="any" value={formData.longitude} onChange={handleChange} required placeholder="e.g. 85.3240" className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-xs font-mono font-bold focus:outline-none focus:border-[#e62020] transition-all" />
+                            </div>
                         </div>
                         <div className="flex items-center gap-4 bg-gray-50 p-6 rounded-[24px] border border-gray-100">
                             <input type="checkbox" id="is_active" name="is_active" checked={formData.is_active} onChange={handleChange} className="w-5 h-5 accent-[#e62020] rounded cursor-pointer" />

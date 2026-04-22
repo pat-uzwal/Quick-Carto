@@ -13,12 +13,47 @@ import { logout, updateProfile } from '../features/auth/authSlice';
 
 const API = 'http://localhost:8000/api';
 
+
+// Reusable Pagination Component
+const Pagination = ({ count, currentPage, onPageChange, pageSize = 20 }) => {
+    const totalPages = Math.ceil(count / pageSize);
+    if (totalPages <= 1) return null;
+
+    return (
+        <div className="flex justify-between items-center px-8 py-6 border-t border-gray-50 bg-gray-50/30">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                Showing {Math.min(count, (currentPage - 1) * pageSize + 1)}-{Math.min(count, currentPage * pageSize)} of {count}
+            </p>
+            <div className="flex gap-2">
+                <button 
+                    disabled={currentPage === 1}
+                    onClick={() => onPageChange(currentPage - 1)}
+                    className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:border-[#e62020] hover:text-[#e62020] disabled:opacity-30 disabled:hover:border-gray-200 disabled:hover:text-gray-500 transition-all font-sans"
+                >
+                    Previous
+                </button>
+                <div className="flex items-center gap-2 px-4 text-[10px] font-black text-gray-900 border-x border-gray-100 font-sans">
+                    PAGE <span className="text-[#e62020]">{currentPage}</span> / {totalPages}
+                </div>
+                <button 
+                    disabled={currentPage === totalPages}
+                    onClick={() => onPageChange(currentPage + 1)}
+                    className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:border-[#e62020] hover:text-[#e62020] disabled:opacity-30 disabled:hover:border-gray-200 disabled:hover:text-gray-500 transition-all font-sans"
+                >
+                    Next
+                </button>
+            </div>
+        </div>
+    );
+};
+
 // ─── Shared hook ────────────────────────────────────────────────────────────────
-function useWarehouseData(accessToken) {
+function useWarehouseData(accessToken, module = 'orders', page = 1) {
     const [orders, setOrders] = useState([]);
     const [inventory, setInventory] = useState([]);
     const [analytics, setAnalytics] = useState({});
     const [loading, setLoading] = useState(true);
+    const [count, setCount] = useState(0);
 
     const safeFetch = async (url, headers) => {
         try {
@@ -28,20 +63,33 @@ function useWarehouseData(accessToken) {
         } catch (e) { return null; }
     };
 
-    const fetchAll = async () => {
+    const fetchAll = async (targetPage = page) => {
         if (!accessToken) return;
         setLoading(true);
         try {
             const headers = { Authorization: `Bearer ${accessToken}` };
-            const [ord, inv, ana] = await Promise.all([
-                safeFetch(`${API}/warehouse/orders/`, headers),
-                safeFetch(`${API}/warehouse/inventory/`, headers),
-                safeFetch(`${API}/warehouse/analytics/`, headers),
-            ]);
             
-            setOrders(Array.isArray(ord) ? ord : ord?.results || []);
-            setInventory(Array.isArray(inv) ? inv : inv?.results || []);
-            setAnalytics(ana || {});
+            if (module === 'overview') {
+                const ana = await safeFetch(`${API}/warehouse/analytics/`, headers);
+                setAnalytics(ana || {});
+            } else if (module === 'orders') {
+                const ord = await safeFetch(`${API}/warehouse/orders/?page=${targetPage}`, headers);
+                setOrders(ord?.results || []);
+                setCount(ord?.count || 0);
+            } else if (module === 'inventory') {
+                const inv = await safeFetch(`${API}/warehouse/inventory/?page=${targetPage}`, headers);
+                setInventory(Array.isArray(inv) ? inv : (inv?.results || []));
+                setCount(Array.isArray(inv) ? inv.length : (inv?.count || 0));
+            } else if (module === 'all') {
+                 const [ord, inv, ana] = await Promise.all([
+                    safeFetch(`${API}/warehouse/orders/`, headers),
+                    safeFetch(`${API}/warehouse/inventory/`, headers),
+                    safeFetch(`${API}/warehouse/analytics/`, headers),
+                ]);
+                setOrders(ord?.results || Array.isArray(ord) ? ord : []);
+                setInventory(inv?.results || Array.isArray(inv) ? inv : []);
+                setAnalytics(ana || {});
+            }
         } catch (e) {
             console.error('Warehouse fetch error', e);
         } finally {
@@ -49,8 +97,8 @@ function useWarehouseData(accessToken) {
         }
     };
 
-    useEffect(() => { fetchAll(); }, [accessToken]);
-    return { orders, inventory, analytics, loading, refetch: fetchAll };
+    useEffect(() => { fetchAll(); }, [accessToken, module, page]);
+    return { orders, inventory, analytics, loading, count, refetch: fetchAll };
 }
 
 // ─── Shared Components ───────────────────────────────────────────────────────
@@ -140,15 +188,18 @@ const DashboardOverview = () => {
 // ─── Incoming Orders Module ──────────────────────────────────────────────────
 const IncomingOrders = () => {
     const { accessToken } = useSelector(s => s.auth);
-    const { orders, loading, refetch } = useWarehouseData(accessToken);
+    const [currentPage, setCurrentPage] = useState(1);
+    const { orders, loading, count, refetch } = useWarehouseData(accessToken, 'orders', currentPage);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [actionLoading, setActionLoading] = useState(null);
 
     const filtered = orders.filter(o => {
-        const matchStatus = statusFilter === 'all' || o.status === statusFilter;
+        const matchStatus = statusFilter === 'all' 
+            ? (o.status !== 'delivered' && o.status !== 'cancelled') 
+            : o.status === statusFilter;
         const q = search.toLowerCase();
-        const matchSearch = !q || String(o.id).includes(q) || (o.user_email || '').toLowerCase().includes(q) || (o.status || '').toLowerCase().includes(q);
+        const matchSearch = !q || String(o.id).includes(q) || (o.customer_name || '').toLowerCase().includes(q) || (o.customer_email || '').toLowerCase().includes(q) || (o.status || '').toLowerCase().includes(q);
         return matchStatus && matchSearch;
     });
 
@@ -167,15 +218,15 @@ const IncomingOrders = () => {
             <div className="flex justify-between items-end">
                 <div>
                     <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase leading-none">Order Queue</h1>
-                    <p className="text-gray-400 mt-2 font-bold uppercase tracking-widest text-[11px] flex items-center gap-2"><ShoppingBag size={13} className="text-[#e62020]" /> {orders.length} orders total</p>
+                    <p className="text-gray-400 mt-2 font-bold uppercase tracking-widest text-[11px] flex items-center gap-2"><ShoppingBag size={13} className="text-[#e62020]" /> {count} orders in queue</p>
                 </div>
             </div>
 
-            <div className="bg-white rounded-[24px] border border-gray-100 shadow-lg p-5 flex justify-between items-center gap-4">
-                <div className="flex gap-3">
-                    {['all', 'pending', 'packed', 'out_for_delivery'].map(s => (
-                        <button key={s} onClick={() => setStatusFilter(s)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === s ? 'bg-[#e62020] text-white shadow-lg shadow-red-500/20' : 'bg-gray-50 text-gray-500 border border-gray-200'}`}>
-                            {s.replace(/_/g, ' ')}
+            <div className="bg-white rounded-[24px] border border-gray-100 shadow-lg p-5 flex flex-wrap justify-between items-center gap-4">
+                <div className="flex flex-wrap gap-2">
+                    {['all', 'pending', 'packed', 'out_for_delivery', 'delivered', 'cancelled'].map(s => (
+                        <button key={s} onClick={() => setStatusFilter(s)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${statusFilter === s ? 'bg-[#e62020] text-white shadow-lg shadow-red-500/20' : 'bg-gray-50 text-gray-500 border border-gray-100'}`}>
+                            {s === 'all' ? 'Active Queue' : s.replace(/_/g, ' ')}
                         </button>
                     ))}
                 </div>
@@ -195,7 +246,7 @@ const IncomingOrders = () => {
                             <tr key={order.id} className="hover:bg-gray-50 border-gray-100">
                                 <td className="px-8 py-4 font-black">#{order.id}</td>
                                 <td className="px-8 py-4 text-xs font-bold text-gray-500">
-                                    <span className="block text-gray-900 mb-0.5">{order.user_email || order.user}</span>
+                                    <span className="block text-gray-900 mb-0.5">{order.customer_email || order.user_email || order.user}</span>
                                     {order.shipping_address && <span className="text-[10px] text-gray-400 uppercase tracking-widest">{order.shipping_address.replace(/,.*$/, '')}</span>}
                                 </td>
                                 <td className="px-8 py-4 text-xs font-bold text-gray-500">{order.items?.length ?? 0} items | NPR {order.total_amount}</td>
@@ -211,6 +262,7 @@ const IncomingOrders = () => {
                         ))}
                     </tbody>
                 </table>
+                <Pagination count={count} currentPage={currentPage} onPageChange={setCurrentPage} />
             </div>
         </div>
     );
@@ -219,7 +271,8 @@ const IncomingOrders = () => {
 // ─── Stock Inventory Module ──────────────────────────────────────────────────
 const StockInventory = () => {
     const { accessToken } = useSelector(s => s.auth);
-    const { inventory, loading, refetch } = useWarehouseData(accessToken);
+    const [currentPage, setCurrentPage] = useState(1);
+    const { inventory, loading, count, refetch } = useWarehouseData(accessToken, 'inventory', currentPage);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [editingStockId, setEditingStockId] = useState(null);
@@ -249,7 +302,7 @@ const StockInventory = () => {
         <div className="p-10 space-y-8 max-w-[1600px] mx-auto animate-in fade-in zoom-in-95 duration-500">
             <div className="flex justify-between items-end">
                 <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase leading-none">Inventory Control</h1>
-                <button onClick={refetch} className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 rounded-2xl text-xs font-black uppercase tracking-widest text-gray-500 hover:border-[#e62020] hover:text-[#e62020] transition-all">
+                <button onClick={() => refetch()} className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 rounded-2xl text-xs font-black uppercase tracking-widest text-gray-500 hover:border-[#e62020] hover:text-[#e62020] transition-all">
                     <RefreshCw size={14} /> Refresh
                 </button>
             </div>
@@ -294,6 +347,7 @@ const StockInventory = () => {
                         ))}
                     </tbody>
                 </table>
+                <Pagination count={count} currentPage={currentPage} onPageChange={setCurrentPage} />
             </div>
         </div>
     );
@@ -415,8 +469,10 @@ const AlertsModule = () => {
 // ─── Customers Hub Module ────────────────────────────────────────────────────
 const CustomersModule = () => {
     const { accessToken } = useSelector(s => s.auth);
+    const { orders } = useWarehouseData(accessToken);
     const [usersList, setUsersList] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
 
     useEffect(() => {
         const fetchCustomers = async () => {
@@ -431,31 +487,96 @@ const CustomersModule = () => {
 
     if (loading) return <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-[#e62020]" /></div>;
 
+    const getCustomerOrders = (email) => {
+        return orders.filter(o => o.customer_email === email);
+    };
+
     return (
         <div className="p-10 space-y-8 max-w-[1600px] mx-auto animate-in fade-in zoom-in-95 duration-500">
-            <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase leading-none">Hub Customers</h1>
-            <p className="text-gray-400 mt-2 font-bold uppercase tracking-widest text-[11px] mb-8">Users ordering from this warehouse</p>
+            <header className="flex justify-between items-end">
+                <div>
+                   <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase leading-none">Hub Customers</h1>
+                   <p className="text-gray-400 mt-2 font-bold uppercase tracking-widest text-[11px] mb-8">Registered users ordering from this regional hub</p>
+                </div>
+                {selectedCustomer && (
+                    <button onClick={() => setSelectedCustomer(null)} className="flex items-center gap-2 px-5 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-[10px] font-black uppercase text-gray-500 hover:text-[#e62020] hover:border-[#e62020] transition-all">
+                        <ChevronRight size={14} className="rotate-180" /> Back to Registry
+                    </button>
+                )}
+            </header>
             
-            <div className="bg-white rounded-[28px] border border-gray-100 shadow-lg overflow-hidden">
-                <table className="w-full text-left">
-                    <thead className="bg-gray-50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
-                        <tr><th className="px-8 py-4">Customer Email</th><th className="px-8 py-4">Total Orders</th><th className="px-8 py-4">Total Spent</th><th className="px-8 py-4 text-right">Latest Order</th></tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                        {usersList.map(u => (
-                            <tr key={u.email} className="hover:bg-gray-50">
-                                <td className="px-8 py-4 font-black text-gray-900">{u.email}</td>
-                                <td className="px-8 py-4 text-xs font-bold text-gray-500">{u.orderCount} orders</td>
-                                <td className="px-8 py-4 text-xs font-black text-gray-500">NPR {u.totalSpent.toFixed(2)}</td>
-                                <td className="px-8 py-4 text-right text-[10px] text-gray-400 uppercase tracking-widest">{u.latestOrder ? new Date(u.latestOrder).toLocaleDateString() : '—'}</td>
-                            </tr>
-                        ))}
-                        {usersList.length === 0 && (
-                            <tr><td colSpan="4" className="p-10 text-center text-sm font-black text-gray-300 uppercase">No customer data found</td></tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
+            {!selectedCustomer ? (
+                <div className="bg-white rounded-[28px] border border-gray-100 shadow-lg overflow-hidden">
+                    <table className="w-full text-left">
+                        <thead className="bg-gray-50 text-gray-400 text-[10px] font-black uppercase tracking-widest">
+                            <tr><th className="px-8 py-4 text-center">#</th><th className="px-8 py-4">Customer Email</th><th className="px-8 py-4">Velocity</th><th className="px-8 py-4">Total Revenue</th><th className="px-8 py-4 text-right">Actions</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {usersList.map((u, idx) => (
+                                <tr key={u.email} className="hover:bg-red-50/10 transition-colors group cursor-pointer" onClick={() => setSelectedCustomer(u)}>
+                                    <td className="px-8 py-4 text-center"><span className="w-6 h-6 rounded bg-gray-50 text-gray-300 flex items-center justify-center text-[10px] mx-auto">{idx + 1}</span></td>
+                                    <td className="px-8 py-4 font-black text-gray-900">{u.email}</td>
+                                    <td className="px-8 py-4 text-xs font-bold text-gray-500">
+                                        <div className="flex items-center gap-2">
+                                            <TrendingUp size={12} className="text-green-500" />
+                                            {u.orderCount} total orders
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-4 text-xs font-black text-gray-500">NPR {u.totalSpent.toLocaleString()}</td>
+                                    <td className="px-8 py-4 text-right">
+                                        <button className="text-[10px] font-black uppercase text-gray-400 group-hover:text-[#e62020] flex items-center gap-1 ml-auto">
+                                            View History <ChevronRight size={14} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                            {usersList.length === 0 && (
+                                <tr><td colSpan="5" className="p-32 text-center text-[10px] font-black text-gray-300 uppercase italic tracking-widest">No active customers detected in this region yet.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <div className="space-y-6">
+                    <div className="bg-[#111827] text-white p-10 rounded-[32px] flex items-center justify-between shadow-2xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                        <div className="relative z-10">
+                            <p className="text-[10px] font-black tracking-widest text-[#e62020] uppercase mb-2">Customer Profile Overview</p>
+                            <h2 className="text-2xl font-black uppercase tracking-tight mb-2">{selectedCustomer.email}</h2>
+                            <div className="flex gap-6 mt-4">
+                                <div><p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Lifetime Orders</p><p className="text-lg font-black">{selectedCustomer.orderCount}</p></div>
+                                <div className="w-px h-10 bg-white/10"></div>
+                                <div><p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Lifetime Expenditure</p><p className="text-lg font-black">NPR {selectedCustomer.totalSpent.toLocaleString()}</p></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-[32px] border border-gray-100 shadow-xl overflow-hidden">
+                        <div className="px-8 py-6 border-b border-gray-100 bg-gray-50/50">
+                            <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest flex items-center gap-2"><Clock size={14}/> Complete Transaction History</h3>
+                        </div>
+                        <table className="w-full text-left">
+                            <thead className="bg-white text-gray-400 text-[10px] font-black uppercase tracking-widest border-b border-gray-50">
+                                <tr><th className="px-8 py-5">Order ID</th><th className="px-8 py-5">Date</th><th className="px-8 py-5">Items</th><th className="px-8 py-5">Amount</th><th className="px-8 py-5 text-right">Status</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {getCustomerOrders(selectedCustomer.email).map(o => (
+                                    <tr key={o.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-8 py-5 font-black text-gray-900">#{o.id}</td>
+                                        <td className="px-8 py-5 text-xs font-bold text-gray-500">{new Date(o.created_at).toLocaleDateString()}</td>
+                                        <td className="px-8 py-5 text-xs font-bold text-gray-500">{o.items?.length || 0} Products</td>
+                                        <td className="px-8 py-5 font-black text-gray-900">NPR {o.total_amount?.toLocaleString()}</td>
+                                        <td className="px-8 py-5 text-right"><StatusBadge status={o.status} /></td>
+                                    </tr>
+                                ))}
+                                {getCustomerOrders(selectedCustomer.email).length === 0 && (
+                                    <tr><td colSpan="5" className="p-20 text-center text-xs font-black text-gray-300 uppercase">Synchronizing order metadata...</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

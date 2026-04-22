@@ -34,18 +34,24 @@ def find_nearest_warehouse(user_lat: float, user_lng: float, product_quantities:
     if not warehouses:
         return None
 
-    # Sort to find the absolute nearest warehouse to the user
+    # Sort warehouses by distance
     warehouses.sort(key=lambda x: x[1])
-    nearest_warehouse = warehouses[0][0]
 
-    # Verify if THIS nearest warehouse has the stock
-    stock_map = {inv.product_id: inv.stock_quantity for inv in nearest_warehouse.inventory.all()}
-    
-    for pid, qty in product_quantities.items():
-        if stock_map.get(pid, 0) < qty:
-            return None # Fail the order because the nearest warehouse is out of stock
+    # Check each warehouse in order of distance
+    for warehouse, distance in warehouses:
+        # Verify if THIS warehouse has the stock
+        stock_map = {inv.product_id: inv.stock_quantity for inv in warehouse.inventory.all()}
+        
+        has_all_stock = True
+        for pid, qty in product_quantities.items():
+            if stock_map.get(pid, 0) < qty:
+                has_all_stock = False
+                break
+        
+        if has_all_stock:
+            return warehouse
 
-    return nearest_warehouse
+    return None # No warehouse has all items in stock
 
 
 def deduct_inventory(warehouse, order_items):

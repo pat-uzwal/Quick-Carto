@@ -91,120 +91,125 @@ class PlaceOrderView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
+        from django.db import transaction
+        import logging
+        logger = logging.getLogger(__name__)
+
         serializer = PlaceOrderSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        cart = get_object_or_404(Cart, user=request.user)
-        cart_items = cart.items.select_related('product__category').all()
-
-        if not cart_items.exists():
-            return Response({'detail': 'Your cart is empty.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Build product → quantity map for warehouse lookup
-        product_quantities = {item.product_id: item.quantity for item in cart_items}
-
-        nearest_wh = find_nearest_warehouse(
-            float(data['delivery_lat']),
-            float(data['delivery_lng']),
-            product_quantities,
-        )
-        if not nearest_wh:
-            return Response(
-                {'detail': 'No warehouse with sufficient stock is available near your location.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Create order
-        subtotal = 0
-        discount_total = 0
-        delivery_fee = 40  # Flat fee as per user requirements
-        
-        # Check for Coupon
-        coupon_code = request.data.get('coupon_code')
-        coupon_discount_val = 0
-        applied_coupon = None
-        
-        if coupon_code:
-            try:
-                # Need to calculate subtotal first to check coupon validity
-                temp_subtotal = sum(item.product.price * item.quantity for item in cart_items)
-                c = Coupon.objects.get(code=coupon_code.upper(), is_active=True)
-                is_valid, msg = c.is_valid(temp_subtotal)
-                if is_valid:
-                    applied_coupon = c
-                    # We will apply this to the final total after item-level discounts
-                else:
-                    return Response({'detail': msg}, status=400)
-            except Coupon.DoesNotExist:
-                return Response({'detail': 'Invalid coupon code.'}, status=400)
-
-        order = Order.objects.create(
-            user=request.user,
-            warehouse=nearest_wh,
-            delivery_address=data['delivery_address'],
-            delivery_lat=data['delivery_lat'],
-            delivery_lng=data['delivery_lng'],
-            delivery_fee=delivery_fee,
-        )
-
-        from apps.offers.utils import apply_offer_to_price, bulk_get_offers_for_products
-        
-        # Batch Fetch all offers for products in cart in 1 query
-        products_in_cart = [item.product for item in cart_items]
-        offers_map = bulk_get_offers_for_products(products_in_cart)
-
-        order_items_to_create = []
-        for item in cart_items:
-            pricing = apply_offer_to_price(item.product, offer=offers_map.get(item.product.id))
-            final_price = pricing['final_price']
-            discount = pricing['discount_amount']
-            subtotal += pricing['original_price'] * item.quantity
-            discount_total += discount * item.quantity
-
-            order_items_to_create.append(OrderItem(
-                order=order,
-                product=item.product,
-                quantity=item.quantity,
-                unit_price=pricing['original_price'],
-                discount_percentage=pricing['discount_percentage'],
-                final_price=final_price,
-                applied_offer=pricing['offer'],
-            ))
-
-        if order_items_to_create:
-            OrderItem.objects.bulk_create(order_items_to_create)
-
-        # Update order totals
-        order.subtotal = subtotal
-        
-        # Initial discount from item-level offers
-        total_discount = discount_total
-        
-        # Add Coupon Discount if applicable
-        if applied_coupon:
-            remaining_total = subtotal - discount_total
-            coupon_discount_val = (remaining_total * (applied_coupon.discount_percentage / 100))
-            total_discount += coupon_discount_val
-
-        order.discount_amount = total_discount
-        order.total_amount = subtotal - total_discount + delivery_fee
-        order.save()
-
-        # Deduct inventory
-        deduct_inventory(nearest_wh, order.items.all())
-
-        # Clear the cart
-        cart.items.all().delete()
-
-        # Fire background notification
         try:
-            from .tasks import notify_warehouse_new_order
-            notify_warehouse_new_order.delay(order.id, nearest_wh.name)
-        except Exception:
-            pass
+            with transaction.atomic():
+                cart = Cart.objects.select_for_update().get(user=request.user)
+                cart_items = cart.items.select_related('product__category').all()
 
-        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+                if not cart_items.exists():
+                    return Response({'detail': 'Your cart is empty.'}, status=status.HTTP_400_BAD_REQUEST)
+
+                # Build product → quantity map
+                product_quantities = {item.product_id: item.quantity for item in cart_items}
+
+                nearest_wh = find_nearest_warehouse(
+                    float(data['delivery_lat']),
+                    float(data['delivery_lng']),
+                    product_quantities,
+                )
+                if not nearest_wh:
+                    return Response(
+                        {'detail': 'No warehouse with sufficient stock is available near your location.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                # Pricing & Discounts
+                subtotal = 0
+                discount_total = 0
+                delivery_fee = 40
+                
+                coupon_code = request.data.get('coupon_code')
+                applied_coupon = None
+                
+                if coupon_code:
+                    try:
+                        temp_subtotal = sum(item.product.price * item.quantity for item in cart_items)
+                        c = Coupon.objects.get(code=coupon_code.upper(), is_active=True)
+                        is_valid, msg = c.is_valid(temp_subtotal, cart_items=cart_items)
+                        if is_valid:
+                            applied_coupon = c
+                        else:
+                            return Response({'detail': msg}, status=400)
+                    except Coupon.DoesNotExist:
+                        return Response({'detail': 'Invalid coupon code.'}, status=400)
+
+                payment_method = request.data.get('payment_method', 'cod')
+                order_status = 'packed' if payment_method == 'khalti' else 'pending'
+
+                order = Order.objects.create(
+                    user=request.user,
+                    warehouse=nearest_wh,
+                    delivery_address=data['delivery_address'],
+                    delivery_lat=data['delivery_lat'],
+                    delivery_lng=data['delivery_lng'],
+                    delivery_fee=delivery_fee,
+                    status=order_status
+                )
+
+                from apps.offers.utils import apply_offer_to_price, bulk_get_offers_for_products
+                products_in_cart = [item.product for item in cart_items]
+                offers_map = bulk_get_offers_for_products(products_in_cart)
+
+                order_items_to_create = []
+                for item in cart_items:
+                    pricing = apply_offer_to_price(item.product, offer=offers_map.get(item.product.id))
+                    subtotal += pricing['original_price'] * item.quantity
+                    discount_total += pricing['discount_amount'] * item.quantity
+
+                    order_items_to_create.append(OrderItem(
+                        order=order,
+                        product=item.product,
+                        quantity=item.quantity,
+                        unit_price=pricing['original_price'],
+                        discount_percentage=pricing['discount_percentage'],
+                        final_price=pricing['final_price'],
+                        applied_offer=pricing['offer'],
+                    ))
+
+                OrderItem.objects.bulk_create(order_items_to_create)
+
+                # Coupon Calculation
+                if applied_coupon:
+                    eligible_total = 0
+                    valid_cat_ids = set(applied_coupon.valid_categories.values_list('id', flat=True))
+                    valid_prod_ids = set(applied_coupon.valid_products.values_list('id', flat=True))
+                    
+                    for item in cart_items:
+                        if (not valid_cat_ids and not valid_prod_ids) or \
+                           (item.product.category_id in valid_cat_ids) or \
+                           (item.product.id in valid_prod_ids):
+                            pricing = apply_offer_to_price(item.product, offer=offers_map.get(item.product.id))
+                            eligible_total += pricing['final_price'] * item.quantity
+                    
+                    discount_total += (eligible_total * (applied_coupon.discount_percentage / 100))
+
+                order.subtotal = subtotal
+                order.discount_amount = discount_total
+                order.total_amount = subtotal - discount_total + delivery_fee
+                order.save()
+
+                deduct_inventory(nearest_wh, order_items_to_create)
+                cart.items.all().delete()
+
+            # Async notification outside atomic block
+            try:
+                from .tasks import notify_warehouse_new_order
+                notify_warehouse_new_order.delay(order.id, nearest_wh.name)
+            except Exception as e:
+                logger.error(f"Celery Notification Error: {e}")
+
+            return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            logger.error(f"Order Placement Error: {e}")
+            return Response({'detail': f'An error occurred: {str(e)}'}, status=500)
 
 
 class ValidateCouponView(APIView):
@@ -314,5 +319,31 @@ class OrderRatingView(APIView):
                 review=review
             )
             return Response(OrderRatingSerializer(rating).data, status=201)
+        except Order.DoesNotExist:
+            return Response({'detail': 'Order not found.'}, status=404)
+
+
+class CancelOrderView(APIView):
+    """Allow customer to cancel their order if not yet picked up."""
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, pk):
+        try:
+            order = Order.objects.get(pk=pk, user=request.user)
+            if order.status not in ['pending', 'packed']:
+                return Response({'detail': 'This order cannot be cancelled anymore.'}, status=400)
+            
+            # Restore inventory
+            if order.warehouse:
+                from apps.warehouses.models import Inventory
+                for item in order.items.all():
+                    inv = Inventory.objects.filter(warehouse=order.warehouse, product=item.product).first()
+                    if inv:
+                        inv.stock_quantity += item.quantity
+                        inv.save()
+
+            order.status = 'cancelled'
+            order.save()
+            return Response({'detail': 'Order cancelled successfully.'})
         except Order.DoesNotExist:
             return Response({'detail': 'Order not found.'}, status=404)

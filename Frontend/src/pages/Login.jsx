@@ -42,9 +42,10 @@ const Login = () => {
         <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
             <div className="max-w-md w-full animate-in fade-in zoom-in duration-500">
                 <div className="bg-white shadow-xl shadow-gray-200/50 rounded-3xl p-8 border border-gray-100">
-                    <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-[#e62020]">
-                            <svg xmlns="http://www.w3.org/Dom/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg>
+                    <div className="text-center mb-10">
+                        <div className="mb-6">
+                            <h1 className="text-3xl font-[1000] text-[#e62020] tracking-tighter uppercase leading-none italic">QuickCarto</h1>
+                            <div className="h-1.5 w-12 bg-gray-100 rounded-full mx-auto mt-3"></div>
                         </div>
                         <h2 className="text-3xl font-black text-gray-900 tracking-tight">Welcome Back</h2>
                         <p className="text-gray-500 mt-2 font-medium">Sign in to your QuickCarto account</p>

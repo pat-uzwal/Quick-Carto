@@ -2,7 +2,8 @@
 Warehouse Manager API views — /api/warehouse/...
 All views require Warehouse Manager role.
 """
-from rest_framework import generics, status
+from rest_framework import generics, status, filters
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
@@ -23,13 +24,15 @@ class WarehouseOrderListView(generics.ListAPIView):
     """Orders assigned to the warehouse visible to this manager."""
     serializer_class = OrderSerializer
     permission_classes = (IsAdminOrWarehouse,)
-    pagination_class = None
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['status']
+    search_fields = ['id', 'user__email', 'user__full_name']
 
     def get_queryset(self):
-        qs = Order.objects.exclude(status='delivered').order_by('-created_at')
-        if self.request.user.role == 'warehouse' and self.request.user.assigned_warehouse:
-            qs = qs.filter(warehouse=self.request.user.assigned_warehouse)
-        return qs
+        manager = self.request.user
+        if not manager.assigned_warehouse:
+            return Order.objects.none()
+        return Order.objects.filter(warehouse=manager.assigned_warehouse).order_by('-created_at')
 
 
 class WarehouseOrderPackView(APIView):
@@ -58,7 +61,6 @@ class WarehouseInventoryView(generics.ListAPIView):
     """List all inventory entries (filterable by product)."""
     serializer_class = InventorySerializer
     permission_classes = (IsAdminOrWarehouse,)
-    pagination_class = None
     def get_queryset(self):
         qs = Inventory.objects.select_related('product', 'warehouse').all()
         if self.request.user.role == 'warehouse' and self.request.user.assigned_warehouse:

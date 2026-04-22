@@ -33,8 +33,38 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'full_name', 'phone_number', 'role', 'latitude', 'longitude', 'current_location', 'assigned_warehouse', 'assigned_warehouse_name', 'addresses')
+        fields = (
+            'id', 'username', 'email', 'full_name', 'phone_number', 'role', 
+            'latitude', 'longitude', 'current_location', 'assigned_warehouse', 
+            'assigned_warehouse_name', 'addresses', 'profile_photo', 
+            'bluebook_image', 'license_image', 'vehicle_image', 'vehicle_details', 
+            'is_online', 'is_approved'
+        )
         read_only_fields = ('role', 'id')
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """Serializer used by Admins to manage all user fields including role and warehouse."""
+    password = serializers.CharField(write_only=True, required=False)
+
+    class Meta:
+        model = User
+        fields = '__all__'
+
+    def create(self, validated_data):
+        password = validated_data.pop('password', 'Staff@123')
+        # Extract M2M fields
+        groups = validated_data.pop('groups', [])
+        user_permissions = validated_data.pop('user_permissions', [])
+        
+        user = User.objects.create_user(**validated_data)
+        user.set_password(password)
+        
+        if groups: user.groups.set(groups)
+        if user_permissions: user.user_permissions.set(user_permissions)
+        
+        user.save()
+        return user
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -64,6 +94,37 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class UserLoginSerializer(TokenObtainPairSerializer):
     """Overrides simplejwt login to provide user data and check verification status."""
     def validate(self, attrs):
+        # We perform manual check to provide specific error messages as requested by the user.
+        # This overrides the default generic "No active account found" message.
+        username = attrs.get('username') or attrs.get('email')
+        password = attrs.get('password')
+
+        try:
+            # Check if user exists (checking by email or username depending on what was provided)
+            # Since standard TokenObtainPairSerializer uses 'username' as the field name even if it's email
+            user_obj = User.objects.filter(email=username).first() or User.objects.filter(username=username).first()
+            
+            if not user_obj:
+                raise serializers.ValidationError({
+                    "detail": "No account found with this identifier. Please check your email or register."
+                })
+            
+            if not user_obj.check_password(password):
+                raise serializers.ValidationError({
+                    "detail": "Incorrect password. Please try again or reset your password."
+                })
+                
+            if not user_obj.is_active:
+                raise serializers.ValidationError({
+                    "detail": "This account is currently disabled."
+                })
+
+        except serializers.ValidationError as e:
+            raise e
+        except Exception:
+            # Fallback for any other errors during manual check
+            pass
+
         data = super().validate(attrs)
         # Staff accounts (admin, warehouse, delivery) are pre-verified — no OTP needed.
         # Only customer self-registrations require OTP verification.

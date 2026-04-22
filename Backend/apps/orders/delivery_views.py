@@ -7,10 +7,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.utils import timezone
 from django.contrib.auth import get_user_model
-from django.db.models import Sum
+from django.db.models import Sum, Avg, Count
 
 from apps.users.permissions import IsDeliveryMan
-from apps.orders.models import Order, DeliveryAssignment, DeliveryNotification, ChatMessage
+from apps.orders.models import Order, DeliveryAssignment, DeliveryNotification, ChatMessage, OrderRating
 from apps.orders.serializers import OrderSerializer, DeliveryNotificationSerializer, ChatMessageSerializer
 from apps.users.serializers import UserSerializer
 from apps.warehouses.models import Warehouse
@@ -366,6 +366,13 @@ class DeliveryStatsView(APIView):
         district = user.assigned_warehouse.get_district_display() if user.assigned_warehouse else 'Unassigned'
         warehouse = user.assigned_warehouse.name if user.assigned_warehouse else 'Unassigned'
 
+        # Average rating from customer reviews
+        rating_data = OrderRating.objects.filter(rider=user).aggregate(
+            avg=Avg('stars'), count=Count('id')
+        )
+        avg_rating = round(rating_data['avg'], 1) if rating_data['avg'] else None
+        total_ratings = rating_data['count'] or 0
+
         return Response({
             'total_delivered': total_delivered,
             'today_delivered': today_delivered,
@@ -375,7 +382,9 @@ class DeliveryStatsView(APIView):
             'current_location': user.current_location or 'GPS Active',
             'warehouse': warehouse,
             'is_online': user.is_online,
-            'vehicle_details': user.vehicle_details or 'Unassigned'
+            'vehicle_details': user.vehicle_details or 'Unassigned',
+            'avg_rating': avg_rating,
+            'total_ratings': total_ratings,
         })
 
 

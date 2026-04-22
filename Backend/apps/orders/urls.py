@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     CartView, CartItemView, ClearCartView, CartSyncView,
     PlaceOrderView, OrderListView, OrderDetailView, NearestWarehouseView,
-    OrderRatingView, ValidateCouponView
+    OrderRatingView, ValidateCouponView, CancelOrderView
 )
 
 urlpatterns = [
@@ -16,5 +16,6 @@ urlpatterns = [
     path('orders/place/', PlaceOrderView.as_view(), name='place-order'),
     path('nearest-warehouse/', NearestWarehouseView.as_view(), name='nearest-warehouse'),
     path('orders/<int:order_pk>/rate/', OrderRatingView.as_view(), name='order-rate'),
+    path('orders/<int:pk>/cancel/', CancelOrderView.as_view(), name='order-cancel'),
     path('coupons/validate/', ValidateCouponView.as_view(), name='validate-coupon'),
 ]

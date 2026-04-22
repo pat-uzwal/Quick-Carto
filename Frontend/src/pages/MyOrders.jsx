@@ -212,7 +212,27 @@ const MyOrders = () => {
                                                     <button onClick={() => navigate(`/product/${order.items?.[0]?.product}`)} className="flex items-center gap-3 w-full justify-center py-4 bg-white border border-gray-100 text-gray-900 rounded-[24px] font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Order Again</button>
                                                 </div>
                                             ) : (
-                                                <div className="text-center opacity-40"><Package size={48} className="mx-auto mb-4"/><p className="text-[9px] font-black uppercase tracking-widest">Logs Secured</p></div>
+                                                <div className="text-center">
+                                                    <Package size={32} className="mx-auto text-gray-200 mb-2"/>
+                                                    {(order.status === 'pending' || order.status === 'packed') && (
+                                                        <button 
+                                                            onClick={async () => {
+                                                                  if (window.confirm("Are you sure you want to cancel this order?")) {
+                                                                      try {
+                                                                          await api.post(`/orders/${order.id}/cancel/`);
+                                                                          window.location.reload();
+                                                                      } catch (err) {
+                                                                          alert(err.response?.data?.detail || "Cancellation failed");
+                                                                      }
+                                                                  }
+                                                            }}
+                                                            className="mt-2 text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-700 bg-red-50 px-4 py-2 rounded-xl transition-all"
+                                                        >
+                                                            Cancel Order
+                                                        </button>
+                                                    )}
+                                                    <p className="text-[9px] font-black uppercase tracking-widest mt-2 opacity-30">Logs Secured</p>
+                                                </div>
                                             )}
                                         </div>
                                     </div>

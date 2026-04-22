@@ -17,7 +17,7 @@ router.register(r'admin/orders', AdminOrderViewSet, basename='admin-order')
 
 urlpatterns = [
     path('admin/users/', AdminUserListView.as_view(), name='admin-user-list'),
-    path('admin/users/<int:pk>/', AdminUserDetailView.as_view(), name='admin-user-detail'),
+    path('admin/users/<uuid:pk>/', AdminUserDetailView.as_view(), name='admin-user-detail'),
     path('admin/analytics/', AdminAnalyticsView.as_view(), name='admin-analytics'),
     path('admin/stock-logs/', AdminStockLogListView.as_view(), name='admin-stock-logs'),
     path('', include(router.urls)),

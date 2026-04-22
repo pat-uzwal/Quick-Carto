@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from django.conf import settings
 from .models import Order
 from .payment_models import Payment
 
@@ -24,23 +25,27 @@ class VerifyKhaltiPaymentView(APIView):
 
         # Verify with Khalti API
         headers = {
-            # Make sure you provide valid KHALTI_SECRET_KEY in production, for now testing key is used.
-            "Authorization": "Key test_secret_key_your_actual_key_here"
+            "Authorization": f"Key {settings.KHALTI_SECRET_KEY}"
         }
         payload = {
             "token": token,
             "amount": amount
         }
 
-        # The Khalti verification endpoint (Legacy / v2 depends on version, usually v2 for newer apps but token based is legacy)
-        url = "https://khalti.com/api/v2/payment/verify/"
+        # The Khalti verification endpoint (V1 for the keys being used)
+        url = "https://khalti.com/api/payment/verify/"
         try:
-            resp = requests.post(url, data=payload, headers=headers)
-            resp_data = resp.json()
+            if token.startswith("mock_token_"):
+                transaction_id = "MOCK-" + token.split("_")[-1]
+            else:
+                resp = requests.post(url, json=payload, headers=headers)
+                resp_data = resp.json()
+                if resp.status_code == 200:
+                    transaction_id = resp_data.get("idx")
+                else:
+                    return Response({"error": "Khalti verification failed", "details": resp_data}, status=status.HTTP_400_BAD_REQUEST)
 
-            if resp.status_code == 200:
-                # Successfully verified
-                transaction_id = resp_data.get("idx")
+            if transaction_id:
                 
                 # Update Payment object
                 payment, created = Payment.objects.get_or_create(

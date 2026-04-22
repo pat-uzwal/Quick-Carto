@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../../../core/widgets/app_logo.dart';
 import 'login_screen.dart';
 
 class LandingScreen extends StatelessWidget {
@@ -9,85 +11,84 @@ class LandingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          // Background Aesthetic
-          Positioned(
-            top: -100, right: -50,
-            child: Container(width: 300, height: 300, decoration: BoxDecoration(color: const Color(0xFFE62020).withOpacity(0.05), shape: BoxShape.circle)),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          image: DecorationImage(
+            image: const AssetImage('assets/bg_pattern.png'),
+            opacity: 0.03,
+            fit: BoxFit.cover,
+            colorFilter: ColorFilter.mode(Colors.red.withOpacity(0.1), BlendMode.dstATop),
           ),
-          Positioned(
-            bottom: -50, left: -50,
-            child: Container(width: 250, height: 250, decoration: BoxDecoration(color: const Color(0xFFE62020).withOpacity(0.05), shape: BoxShape.circle)),
-          ),
-          
-          SafeArea(
+        ),
+        child: SafeArea(
+          child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(32.0),
               physics: const ClampingScrollPhysics(),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 80),
-                  // Improved Hero Logo Container (No more square-in-circle clash)
-                  Container(
-                    width: 300, height: 300,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8E8E8), // Match the logo's light gray
-                      borderRadius: BorderRadius.circular(32),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 40, offset: const Offset(0, 20)),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(32),
-                      child: Image.asset('assets/logo.png', fit: BoxFit.cover),
-                    ),
-                  ),
-                  const SizedBox(height: 60),
-                  const Text(
-                    "QUICKCARTO",
-                    style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: Colors.black, letterSpacing: -2),
-                  ),
+                  const AppLogo(scale: 1.2),
                   const SizedBox(height: 16),
-                  const Text(
-                    "Your neighborhood grocery store\ndelivered in minutes.",
+                  Text(
+                    "You stay home while we haul.",
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey, height: 1.6, letterSpacing: -0.5),
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: -0.2,
+                    ),
                   ),
-                  const SizedBox(height: 80),
-                  
+                  const SizedBox(height: 54),
                   SizedBox(
                     width: double.infinity,
-                    height: 68,
+                    height: 64,
                     child: ElevatedButton(
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LoginScreen())),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => LoginScreen()),
+                        );
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFE62020),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                        elevation: 10, shadowColor: const Color(0xFFE62020).withOpacity(0.4),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        elevation: 12,
+                        shadowColor: const Color(0xFFE62020).withOpacity(0.4),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Text("GET STARTED", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 18, letterSpacing: 1.5)),
-                          SizedBox(width: 14),
-                          Icon(LucideIcons.arrowRight, color: Colors.white, size: 24),
-                        ],
+                      child: Text(
+                        "GET STARTED",
+                        style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 1.0,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 32),
-                  const Text(
+                  Text(
                     "LOCAL PRODUCE • FRESH MEAT • DRINKS",
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 2),
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey.shade400,
+                      letterSpacing: 1.0,
+                    ),
                   ),
-                  const SizedBox(height: 40),
                 ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

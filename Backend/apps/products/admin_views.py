@@ -20,7 +20,6 @@ class AdminProductViewSet(viewsets.ModelViewSet):
     """Admin-only product management CRUD + bulk upload."""
     queryset = Product.objects.all().select_related('category')
     permission_classes = (IsAdmin,)
-    pagination_class = None
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'brand', 'is_active']
     search_fields = ['name', 'sku', 'brand', 'description']

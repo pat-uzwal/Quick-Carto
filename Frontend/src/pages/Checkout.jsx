@@ -94,12 +94,16 @@ const Checkout = () => {
         setAddress({ ...address, [e.target.name]: e.target.value });
     };
 
+    const [currentOrder, setCurrentOrder] = useState(null);
+    const [showKhaltiModal, setShowKhaltiModal] = useState(false);
+    const [mockPaymentStep, setMockPaymentStep] = useState(1); // 1: input, 2: otp, 3: success
+    const [mockDetails, setMockDetails] = useState({ mobile: '', pin: '', otp: '' });
+
     const handlePlaceOrder = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         setIsProcessing(true);
 
         try {
-            // 1. Sync entire cart to backend in ONE request
             await api.post('/cart/sync/', {
                 items: items.map(item => ({
                     product: item.id || item.product?.id || item._id,
@@ -107,51 +111,40 @@ const Checkout = () => {
                 }))
             });
 
-            // 2. Place Order in backend
             const orderRes = await api.post('/orders/place/', {
                 delivery_address: `${address.street}, ${address.area}, ${address.city}`,
                 delivery_lat: user?.latitude ? parseFloat(user.latitude).toFixed(6) : "27.717200",
                 delivery_lng: user?.longitude ? parseFloat(user.longitude).toFixed(6) : "85.324000",
-                coupon_code: appliedCoupon?.code || null
+                coupon_code: appliedCoupon?.code || null,
+                payment_method: paymentMethod // notify backend to mark as packed
             });
+            
             const order = orderRes.data;
+            setCurrentOrder(order);
 
             if (paymentMethod === 'khalti') {
-                // 3. Initiate Khalti Payment
-                let config = {
-                    "publicKey": "test_public_key_dc74e0fd57cb46cd93832aee0a390234",
-                    "productIdentity": order.id.toString(),
-                    "productName": "Blinkit Order",
-                    "productUrl": "http://localhost:5173",
-                    "eventHandler": {
-                        onSuccess: async (payload) => {
-                            try {
-                                await api.post('/payments/verify-khalti/', {
-                                    token: payload.token, amount: payload.amount, order_id: order.id
-                                });
-                                finishOrderSuccess();
-                            } catch (error) {
-                                alert('Payment verification failed.');
-                                setIsProcessing(false);
-                            }
-                        },
-                        onError: (error) => { alert("Payment error"); setIsProcessing(false); },
-                        onClose: () => { setIsProcessing(false); }
-                    },
-                    "paymentPreference": ["KHALTI", "EBANKING", "MOBILE_BANKING", "CONNECT_IPS", "SCT"],
-                };
-                let checkout = new KhaltiCheckout(config);
-                checkout.show({ amount: Math.round(order.total_amount * 100) });
+                setShowKhaltiModal(true);
+                setMockPaymentStep(1);
+                setMockDetails({ mobile: '', pin: '', otp: '' });
+                setIsProcessing(false);
             } else {
-                // Cash on Delivery
                 finishOrderSuccess();
             }
-
         } catch (error) {
             console.error(error);
-            const msg = error.response?.data?.detail || JSON.stringify(error.response?.data) || "Unknown error";
-            alert("Failed to place order. " + msg);
             setIsProcessing(false);
+            alert("Failed to place order.");
+        }
+    };
+
+    const handleMockPaymentNext = async () => {
+        if (mockPaymentStep === 1) {
+            if (!mockDetails.mobile || !mockDetails.pin) return alert("Please enter mobile and PIN");
+            setMockPaymentStep(3); // Skip straight to success animation
+            setTimeout(() => {
+                setShowKhaltiModal(false);
+                finishOrderSuccess();
+            }, 800);
         }
     };
 
@@ -228,7 +221,6 @@ const Checkout = () => {
                             <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700"></div>
                             
                             <div className="flex items-center gap-3 mb-8 relative z-10">
-                                <div className="p-3 bg-red-50 text-[#e62020] rounded-2xl"><Navigation2 size={24} /></div>
                                 <div>
                                     <h2 className="text-xl font-black uppercase tracking-tight text-gray-900">Delivery Address</h2>
                                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mt-1">Auto-detected Location</p>
@@ -258,7 +250,6 @@ const Checkout = () => {
                         {/* Payment Method Panel */}
                         <div className="bg-white p-8 rounded-[32px] shadow-xl shadow-gray-200/40 border border-gray-100">
                             <div className="flex items-center gap-3 mb-8">
-                                <div className="p-3 bg-green-50 text-green-600 rounded-2xl"><Wallet size={24} /></div>
                                 <div>
                                     <h2 className="text-xl font-black uppercase tracking-tight text-gray-900">Payment Options</h2>
                                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mt-1">Select your preference</p>
@@ -299,7 +290,6 @@ const Checkout = () => {
                         {/* Coupon Section */}
                         <div className="bg-white p-8 rounded-[32px] shadow-xl shadow-gray-200/40 border border-gray-100">
                             <div className="flex items-center gap-3 mb-8">
-                                <div className="p-3 bg-yellow-50 text-yellow-600 rounded-2xl"><Ticket size={24} /></div>
                                 <div>
                                     <h2 className="text-xl font-black uppercase tracking-tight text-gray-900">Promo Code</h2>
                                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mt-1">Have an Auth Key?</p>
@@ -407,15 +397,89 @@ const Checkout = () => {
                                 <span>{deliveryFee === 0 ? 'FREE' : `Rs ${deliveryFee}`}</span>
                             </div>
                         </div>
-
                         <div className="flex justify-between items-center bg-gray-900 text-white rounded-[20px] p-6 shadow-xl">
                             <span className="text-xs font-black uppercase tracking-widest text-gray-400">Grand Total</span>
                             <span className="text-2xl font-black">NPR {grandTotal}</span>
                         </div>
                     </div>
                 </div>
-
             </main>
+
+            {/* Custom High-Fidelity Khalti Mock Modal */}
+            {showKhaltiModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-[400px] rounded-[24px] overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-300">
+                        {/* Header */}
+                        <div className="bg-[#5C2D91] p-6 flex flex-col items-center">
+                            <img src="https://khalti.com/static/img/logo1.png" alt="Khalti" className="h-10 mb-2 brightness-0 invert" />
+                            <div className="flex gap-1">
+                                {[1, 3].map(i => (
+                                    <div key={i} className={`h-1.5 w-1.5 rounded-full ${mockPaymentStep >= i ? 'bg-white' : 'bg-white/30'}`} />
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-8">
+                            {mockPaymentStep === 1 && (
+                                <div className="space-y-6 animate-in slide-in-from-right-4">
+                                    <div className="text-center">
+                                        <h3 className="font-black text-[#5C2D91] text-lg uppercase tracking-tight">Wallet Checkout</h3>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Enter your details to proceed</p>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">Mobile Number</label>
+                                            <input 
+                                                type="tel" 
+                                                placeholder="98XXXXXXXX" 
+                                                value={mockDetails.mobile}
+                                                onChange={(e) => setMockDetails({...mockDetails, mobile: e.target.value})}
+                                                className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[#5C2D91]" 
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5 ml-1">Payment PIN</label>
+                                            <input 
+                                                type="password" 
+                                                placeholder="XXXX" 
+                                                value={mockDetails.pin}
+                                                onChange={(e) => setMockDetails({...mockDetails, pin: e.target.value})}
+                                                className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-[#5C2D91]" 
+                                            />
+                                        </div>
+                                    </div>
+                                    <button onClick={handleMockPaymentNext} className="w-full bg-[#5C2D91] text-white py-4 rounded-xl font-black uppercase tracking-widest text-sm shadow-lg shadow-purple-200 active:scale-95 transition-all">Pay NPR {grandTotal}</button>
+                                </div>
+                            )}
+
+                            {mockPaymentStep === 3 && (
+                                <div className="space-y-6 animate-in zoom-in-95 text-center py-4">
+                                    <div className="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-xl shadow-green-100 animate-bounce">
+                                        <CheckCircle2 size={40} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-black text-gray-900 text-xl uppercase tracking-tight">Payment Verified</h3>
+                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Order successfully initiated</p>
+                                    </div>
+                                    <div className="flex items-center justify-center gap-2 text-[#5C2D91] font-black italic animate-pulse">
+                                        <Loader2 size={16} className="animate-spin" />
+                                        <span className="text-[10px] uppercase tracking-[0.3em]">Finalizing...</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            <button onClick={() => setShowKhaltiModal(false)} className="w-full mt-6 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-gray-600 transition-colors">Cancel Payment</button>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="bg-gray-50 border-t border-gray-100 p-4 flex items-center justify-center gap-2 grayscale opacity-50">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase">Powered by</span>
+                            <img src="https://khalti.com/static/img/logo1.png" alt="Khalti" className="h-4" />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

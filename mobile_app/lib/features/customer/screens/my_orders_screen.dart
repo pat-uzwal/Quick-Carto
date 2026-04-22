@@ -16,6 +16,8 @@ class MyOrdersScreen extends StatefulWidget {
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
   List<dynamic> _orders = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  String? _nextPageUrl;
   Timer? _pollTimer;
 
   @override
@@ -44,12 +46,38 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
         if (mounted) {
           setState(() {
              _orders = data['results'] ?? data;
+             _nextPageUrl = data['next'];
              _isLoading = false;
           });
         }
       }
     } catch (e) {
       if (mounted && !isPolling) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_nextPageUrl == null || _isLoadingMore) return;
+    setState(() => _isLoadingMore = true);
+    try {
+      // Extract the relative path from the full URL if needed, or update ApiService
+      final uri = Uri.parse(_nextPageUrl!);
+      final endpoint = uri.path.replaceAll('/api/', '') + '?' + uri.query;
+      
+      final res = await ApiService.get(endpoint);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (mounted) {
+          setState(() {
+            _orders.addAll(data['results'] ?? []);
+            _nextPageUrl = data['next'];
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Load More Error: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -76,6 +104,49 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       case 'delivered': return Colors.green;
       case 'cancelled': return Colors.grey;
       default: return Colors.grey;
+    }
+  }
+
+  Future<void> _cancelOrder(int orderId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Order?', style: TextStyle(fontWeight: FontWeight.w900)),
+        content: const Text('Are you sure you want to cancel this order? This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('NO', style: TextStyle(color: Colors.grey))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('YES, CANCEL', style: TextStyle(color: Color(0xFFE62020), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isLoading = true);
+      try {
+        final res = await ApiService.post('/orders/$orderId/cancel/', {});
+        if (res.statusCode == 200) {
+          _fetchOrders();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Order cancelled successfully.'), backgroundColor: Colors.black),
+            );
+          }
+        } else {
+          final data = jsonDecode(res.body);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(data['detail'] ?? 'Failed to cancel order'), backgroundColor: Colors.red),
+            );
+          }
+        }
+      } catch (e) {
+         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Network error occurred.')));
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -193,8 +264,24 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                   color: const Color(0xFFE62020),
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                    itemCount: _orders.length,
-                    itemBuilder: (ctx, i) => _buildOrderCard(_orders[i]),
+                    itemCount: _orders.length + (_nextPageUrl != null ? 1 : 0),
+                    itemBuilder: (ctx, i) {
+                      if (i == _orders.length) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          child: Center(
+                            child: _isLoadingMore
+                                ? const CircularProgressIndicator(color: Color(0xFFE62020), strokeWidth: 2)
+                                : TextButton(
+                                    onPressed: _loadMore,
+                                    child: const Text('LOAD MORE ORDERS',
+                                        style: TextStyle(color: Color(0xFFE62020), fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
+                                  ),
+                          ),
+                        );
+                      }
+                      return _buildOrderCard(_orders[i]);
+                    },
                   ),
                 ),
     );
@@ -384,6 +471,18 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                             Text('${order['rating']?['stars'] ?? '—'} Stars',
                                 style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.orange)),
                           ],
+                        ),
+                      ),
+                    // Cancel button for pending/packed orders
+                    if (status == 'pending' || status == 'packed')
+                      TextButton.icon(
+                        onPressed: () => _cancelOrder(order['id']),
+                        icon: const Icon(LucideIcons.xCircle, size: 14, color: Color(0xFFE62020)),
+                        label: const Text('CANCEL', style: TextStyle(color: Color(0xFFE62020), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          backgroundColor: const Color(0xFFE62020).withOpacity(0.05),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                   ],
